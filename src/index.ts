@@ -16,12 +16,15 @@ export type Bindings = {
 const app = new OpenAPIHono<{ Bindings: Bindings }>();
 
 app.use('/api/*', async (c, next) => {
-  const allowedOrigins = [c.env.URL];
-  const origin = c.req.header('Origin');
+  const allowedOrigins = [c.env.URL]; // Allowed origins from env
+  const origin = c.req.header('Origin'); // Get Origin header
 
+  // If origin is missing or not allowed, reject the request
   if (!origin || !allowedOrigins.includes(origin)) {
     return c.text('Forbidden: Origin not allowed', 403);
   }
+
+  // Apply CORS middleware if the origin is allowed
   const corsMiddleware = cors({
     origin: allowedOrigins,
   });
@@ -215,7 +218,7 @@ app.get("/", async (c) => {
           const baseUrl = window.location.origin;
           const fullShortUrl = \`\${baseUrl}/\${currentShortUrl}\`;
   
-          img.src = \`/api/qrcode?url=\${encodeURIComponent(currentShortUrl)}&format=\${format}\`;
+          img.src = \`/qrcode?url=\${encodeURIComponent(currentShortUrl)}&format=\${format}\`;
           img.style.display = "block";
           downloadBtn.classList.remove("hidden");
   
@@ -367,7 +370,7 @@ app.post("/api/saveURL", async (c) => {
   }
 });
 
-app.get("/api/qrcode", async (c) => {
+app.get("/qrcode", async (c) => {
   await initializeWasm();
 
   const { url, size = 600, format = "png" } = c.req.query();
