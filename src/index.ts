@@ -198,7 +198,7 @@ app.get("/", async (c) => {
           const baseUrl = window.location.origin;
           const fullShortUrl = \`\${baseUrl}/\${currentShortUrl}\`;
   
-          img.src = \`/qrcode?url=\${encodeURIComponent(currentShortUrl)}&format=\${format}\`;
+          img.src = \`/api/qrcode?url=\${encodeURIComponent(currentShortUrl)}&format=\${format}\`;
           img.style.display = "block";
           downloadBtn.classList.remove("hidden");
   
@@ -350,7 +350,7 @@ app.post("/api/saveURL", async (c) => {
   }
 });
 
-app.get("/qrcode", async (c) => {
+app.get("/api/qrcode", async (c) => {
   await initializeWasm();
 
   const { url, size = 600, format = "png" } = c.req.query();
