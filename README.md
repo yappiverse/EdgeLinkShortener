@@ -1,103 +1,94 @@
-## 🪿 HONC
+# 🦆 QR Code & URL Shortener
 
-This is a project created with the `create-honc-app` template.
+Hey there! 👋 This is a fun little project that lets you create QR codes and shorten URLs right from your browser. It's built using HONC Stack and runs on Cloudflare's edge network, making it super fast and reliable.
 
-Learn more about the HONC stack on the [website](https://honc.dev) or the main [repo](https://github.com/fiberplane/create-honc-app).
+## What can it do?
 
-There is also an [Awesome HONC collection](https://github.com/fiberplane/awesome-honc) with further guides, use cases and examples.
+### 🔗 URL Shortening
 
-### Getting started
+- Make long URLs short and sweet
+- Get a unique, memorable short link
+- Automatic URL validation and cleanup
 
-[D1](https://developers.cloudflare.com/d1/) is Cloudflare's serverless SQL database. Running HONC with a D1 database involves two key steps: first, setting up the project locally, and second, deploying it in production. You can spin up your D1 database locally using Wrangler. If you're planning to deploy your application for production use, ensure that you have created a D1 instance in your Cloudflare account.
+### ✨ QR Code Magic
 
-### Project structure
+- Turn any URL or text into a QR code
+- Choose between SVG or PNG formats
+- Get a real-time preview as you type
+- Download your QR codes or copy the image link
 
-```#
-├── src
-│   ├── index.ts # Hono app entry point
-│   └── db
-│       └── schema.ts # Database schema
-├── .dev.vars.example # Example .dev.vars file
-├── .prod.vars.example # Example .prod.vars file
-├── seed.ts # Optional script to seed the db
-├── drizzle.config.ts # Drizzle configuration
-├── package.json
-├── tsconfig.json # TypeScript configuration
-└── wrangler.toml # Cloudflare Workers configuration
-```
+### ⚡️ Built for Speed
 
-### Commands for local development
+- Runs on Cloudflare Workers (edge computing)
+- Uses D1 database for persistent storage
+- Serverless architecture means it scales automatically
+- Secure HTTPS connections for all requests
 
-Run the migrations and (optionally) seed the database:
+## How does it work?
 
-```sh
-# this is a convenience script that runs db:touch, db:generate, db:migrate, and db:seed
-npm run db:setup
-```
+### Behind the Scenes
 
-Run the development server:
+1. When you enter a URL:
 
-```sh
-npm run dev
-```
+   - It gets validated and cleaned up
+   - A unique short code is generated using SHA-256 hashing
+   - The mapping is stored in a Cloudflare D1 database
+   - You get back a short URL like `https://shortener.web.id/abc1234`
 
-As you iterate on the database schema, you'll need to generate a new migration file and apply it like so:
+2. When someone scans a QR code or clicks a short URL:
 
-```sh
-npm run db:generate
-npm run db:migrate
-```
+   - The system looks up the original URL
+   - Redirects the user instantly
 
-### Commands for deployment
+3. QR codes are generated using:
 
-Before deploying your worker to Cloudflare, ensure that you have a running D1 instance on Cloudflare to connect your worker to.
+   - `qrcode-svg` for SVG output
+   - `svg2png-wasm` for PNG conversion using WebAssembly (WASM)
+   - Real-time preview updates as you type
 
-You can create a D1 instance by navigating to the `Workers & Pages` section and selecting `D1 SQL Database.`
+   ### Why WebAssembly for PNG?
 
-Alternatively, you can create a D1 instance using the CLI:
+   Cloudflare Workers (edge computing) environments don't have native PNG support. To provide PNG output:
 
-```sh
-npx wrangler d1 create <database-name>
-```
+   - I use WebAssembly (WASM) to run a lightweight PNG encoder directly in the edge environment
+   - The SVG output from qrcode-svg is converted to PNG using svg2png-wasm
+   - This approach provides PNG support without requiring native libraries
+   - WASM is initialized once at startup for optimal performance
 
-After creating the database, update the `wrangler.toml` file with the database id.
+## Let's Get Started!
 
-```toml
-[[d1_databases]]
-binding = "DB"
-database_name = "honc-d1-database"
-database_id = "<database-id-you-just-created>"
-migrations_dir = "drizzle/migrations"
-```
+### Quick Setup
 
-Include the following information in a `.prod.vars` file:
+1. Clone this repo
+2. Install dependencies: `bun install`
+3. Set up your local database: `bun run db:setup`
+4. Start the dev server: `bun run dev`
+5. Open `http://localhost:8787` in your browser
 
-```sh
-CLOUDFLARE_D1_TOKEN="" # An API token with D1 edit permissions. You can create API tokens from your Cloudflare profile
-CLOUDFLARE_ACCOUNT_ID="" # Find your Account id on the Workers & Pages overview (upper right)
-CLOUDFLARE_DATABASE_ID="" # Find the database ID under workers & pages under D1 SQL Database and by selecting the created database
-```
+### Deployment
 
-If you haven’t generated the latest migration files yet, run:
+1. Create a D1 database in Cloudflare
+2. Update `wrangler.toml` with your database ID
+3. Add your Cloudflare credentials in `.prod.vars`
+4. Deploy: `bun run deploy`
 
-```shell
-npm run db:generate
-```
+## Tech Stack
 
-Afterwards, run the migration script for production:
+- **Backend**: Hono ([HONC Stack](https://honc.dev))
+- **Database**: [Cloudflare D1](https://developers.cloudflare.com/d1/)
+- **ORM**: [Drizzle](https://orm.drizzle.team/)
+- **QR Code**: [qrcode-svg](https://github.com/papnkukn/qrcode-svg) + [svg2png-wasm](https://github.com/ssssota/svg2png-wasm)
+- **Styling**: CSS
 
-```shell
-npm run db:migrate:prod
-```
+## Contributing
 
-Change the name of the project in `wrangler.toml` to something appropriate for your project:
+Found a bug? Have an idea? We'd love your help!
 
-```toml
-name = "my-d1-project"
-```
+1. Fork the repo
+2. Create a new branch
+3. Make your changes
+4. Submit a pull request
 
-Finally, deploy your worker
+## License
 
-```shell
-npm run deploy
-```
+MIT License - go wild! 🎉

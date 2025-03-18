@@ -1,6 +1,5 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { drizzle } from "drizzle-orm/d1";
-import { html } from "hono/html";
 import { initialize, svg2png } from "svg2png-wasm";
 import wasm from "svg2png-wasm/svg2png_wasm_bg.wasm";
 import qr from "qrcode-svg";
@@ -8,7 +7,6 @@ import { urlsTable } from "./db/schema";
 import { eq } from "drizzle-orm";
 import { createHash } from 'crypto';
 import { cache } from "hono/cache";
-
 export type Bindings = {
   DB: D1Database;
 };
