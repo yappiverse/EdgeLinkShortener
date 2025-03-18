@@ -1,6 +1,7 @@
-name = "qrcode-new"
+name = "urlshortener"
 compatibility_date = "2025-02-04"
 compatibility_flags = ["nodejs_compat"]
+routes = [{ pattern = "shortener.web.id", custom_domain = true }]
 
 [[d1_databases]]
 binding = "DB"
