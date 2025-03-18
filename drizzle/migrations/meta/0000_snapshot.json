@@ -1,0 +1,64 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "5c9511be-d989-4f91-810e-e2cce873a4ff",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "urls": {
+      "name": "urls",
+      "columns": {
+        "shortened_url": {
+          "name": "shortened_url",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "original_url": {
+          "name": "original_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "urls_shortened_url_unique": {
+          "name": "urls_shortened_url_unique",
+          "columns": [
+            "shortened_url"
+          ],
+          "isUnique": true
+        },
+        "shortened_url_idx": {
+          "name": "shortened_url_idx",
+          "columns": [
+            "shortened_url"
+          ],
+          "isUnique": false
+        },
+        "original_url_idx": {
+          "name": "original_url_idx",
+          "columns": [
+            "original_url"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

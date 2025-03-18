@@ -1,11 +1,11 @@
 name = "qrcode-new"
 compatibility_date = "2025-02-04"
-compatibility_flags = [ "nodejs_compat" ]
+compatibility_flags = ["nodejs_compat"]
 
 [[d1_databases]]
 binding = "DB"
-database_name = "honc-d1-database"
-database_id = "local-honc-d1-database"
+database_name = "EdgeLinkDB"
+database_id = "31553975-7285-4e74-9a6d-1b14f16fb113"
 migrations_dir = "drizzle/migrations"
 
 # [vars]
