@@ -55,9 +55,10 @@ function getLocalD1DB() {
       throw new Error(`.sqlite file not found in ${basePath}`);
     }
 
-    const url = path.resolve(basePath, dbFile);
+    const filePath = path.resolve(basePath, dbFile);
+    const fileUrl = new URL(`file://${filePath}`).toString();
 
-    return url;
+    return fileUrl;
   } catch (err) {
     if (err instanceof Error) {
       console.log(`Error resolving local D1 DB: ${err.message}`);
