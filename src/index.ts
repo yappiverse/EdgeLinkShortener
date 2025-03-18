@@ -67,9 +67,54 @@ app.get("/", async (c) => {
         #url-info { margin-top: 20px; text-align: left; font-size: 14px; }
         #url-info p { margin: 10px 0; }
         .url-text { word-break: break-all; display: block; margin-bottom: 10px; }
-        .copy-btn { background: #007bff; border: none; padding: 8px 16px; font-size: 14px; cursor: pointer; color: white; border-radius: 4px; width: 100%; transition: background 0.3s; }
-        .copy-btn:hover { background: #0056b3; }
+        .copy-btn {
+          background: #007bff;
+          border: none;
+          padding: 8px 16px;
+          font-size: 14px;
+          cursor: pointer;
+          color: white;
+          border-radius: 4px;
+          width: 100%;
+          transition: background 0.3s, transform 0.2s ease;
+        }
+
+        .copy-btn:hover {
+          background: #0056b3;
+        }
+
+        .copy-btn:active {
+          transform: scale(0.95);
+        }
+
+        .copy-btn.copied {
+          background: #28a745 !important; /* Green when copied */
+          transform: scale(1.01);
+        }
+
         .error-message { color: red; font-size: 14px; margin-top: 10px; display: none; }
+
+        .toast {
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: #007bff;
+          color: white;
+          padding: 12px 20px;
+          border-radius: 5px;
+          font-size: 14px;
+          opacity: 0;
+          transition: opacity 0.3s ease, transform 0.3s ease;
+          box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3); /* Soft blue glow */
+        }
+
+        .toast.show {
+          opacity: 1;
+          transform: translateY(10px);
+        }
+
+
+
       </style>
     </head>
     <body>
@@ -188,16 +233,38 @@ app.get("/", async (c) => {
         }
   
         async function copyToClipboard() {
+          const copyButton = document.querySelector(".copy-btn");
           const shortUrlText = document.getElementById("short-url").textContent;
           if (!shortUrlText.trim()) return;
-  
+
           await saveUrlIfNeeded();
-  
+
           navigator.clipboard.writeText(shortUrlText).then(() => {
-            const copyButton = document.querySelector(".copy-btn");
-            copyButton.textContent = "Copied!";
-            setTimeout(() => { copyButton.textContent = "Copy"; }, 2000);
+            showToast("✅ Link copied to clipboard!");
+            
+            // Button Animation
+            copyButton.classList.add("copied");
+            setTimeout(() => {
+              copyButton.classList.remove("copied");
+            }, 1000);
           });
+        }
+
+
+        function showToast(message) {
+          const toast = document.createElement("div");
+          toast.className = "toast";
+          toast.textContent = message;
+          document.body.appendChild(toast);
+
+          setTimeout(() => {
+            toast.classList.add("show");
+          }, 100); // Small delay to trigger animation
+
+          setTimeout(() => {
+            toast.classList.remove("show");
+            setTimeout(() => toast.remove(), 300);
+          }, 2000);
         }
   
         async function downloadQRCode() {
