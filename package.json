@@ -13,22 +13,19 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@fiberplane/hono": "0.4.4-beta.2",
     "@types/qrcode-svg": "^1.1.5",
-    "dotenv": "^16.4.5",
-    "drizzle-orm": "^0.39.3",
-    "hono": "^4.7.0",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.40.1",
+    "hono": "^4.7.4",
     "qrcode-svg": "^1.1.0",
-    "svg2png-wasm": "^1.4.1",
-    "zod": "^3.23.8"
+    "svg2png-wasm": "^1.4.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250204.0",
-    "@fiberplane/hono-otel": "^0.6.2",
+    "@cloudflare/workers-types": "^4.20250317.0",
     "@libsql/client": "^0.14.0",
-    "drizzle-kit": "^0.30.4",
+    "drizzle-kit": "^0.30.5",
     "drizzle-seed": "^0.3.1",
-    "tsx": "^4.19.2",
-    "wrangler": "4"
+    "tsx": "^4.19.3",
+    "wrangler": "^4.1.0"
   }
 }
