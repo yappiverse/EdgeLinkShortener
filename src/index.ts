@@ -230,7 +230,7 @@ app.get("/", async (c) => {
         document.getElementById("qr-input").addEventListener("input", () => {
           currentShortUrl = null;
           isUrlSaved = false;
-          debounce(updateQRCode, 150);
+          debounce(updateQRCode, 50);
         });
   
         async function saveUrlIfNeeded() {
