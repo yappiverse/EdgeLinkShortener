@@ -7,11 +7,28 @@ import { urlsTable } from "./db/schema";
 import { eq } from "drizzle-orm";
 import { createHash } from 'crypto';
 import { cache } from "hono/cache";
+import { cors } from "hono/cors";
 export type Bindings = {
   DB: D1Database;
+  URL: string;
 };
 
 const app = new OpenAPIHono<{ Bindings: Bindings }>();
+
+app.use('/api/*', async (c, next) => {
+  const allowedOrigins = [c.env.URL];
+  const origin = c.req.header('Origin');
+
+  if (!origin || !allowedOrigins.includes(origin)) {
+    return c.text('Forbidden: Origin not allowed', 403);
+  }
+  const corsMiddleware = cors({
+    origin: allowedOrigins,
+  });
+
+  return corsMiddleware(c, next);
+});
+
 
 let isWasmInitialized = false;
 
