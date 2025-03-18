@@ -33,21 +33,6 @@ app.post("/api/user", async (c) => {
 });
 
 /**
- * Serve a simplified api specification for your API
- * As of writing, this is just the list of routes and their methods.
- */
-app.get("/openapi.json", c => {
-  // @ts-expect-error - @fiberplane/hono is in beta and still not typed correctly
-  return c.json(createOpenAPISpec(app, {
-    openapi: "3.0.0",
-    info: {
-      title: "Honc D1 App",
-      version: "1.0.0",
-    },
-  }))
-});
-
-/**
  * Mount the Fiberplane api explorer to be able to make requests against your API.
  * 
  * Visit the explorer at `/fp`
