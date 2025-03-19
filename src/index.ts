@@ -15,22 +15,22 @@ export type Bindings = {
 
 const app = new OpenAPIHono<{ Bindings: Bindings }>();
 
-// app.use('/api/*', async (c, next) => {
-//   const allowedOrigins = [c.env.URL]; // Allowed origins from env
-//   const origin = c.req.header('Origin'); // Get Origin header
+app.use('/api/*', async (c, next) => {
+  const allowedOrigins = [c.env.URL]; // Allowed origins from env
+  const origin = c.req.header('Origin'); // Get Origin header
 
-//   // If origin is missing or not allowed, reject the request
-//   if (!origin || !allowedOrigins.includes(origin)) {
-//     return c.text('Forbidden: Origin not allowed', 403);
-//   }
+  // If origin is missing or not allowed, reject the request
+  if (!origin || !allowedOrigins.includes(origin)) {
+    return c.text('Forbidden: Origin not allowed', 403);
+  }
 
-//   // Apply CORS middleware if the origin is allowed
-//   const corsMiddleware = cors({
-//     origin: allowedOrigins,
-//   });
+  // Apply CORS middleware if the origin is allowed
+  const corsMiddleware = cors({
+    origin: allowedOrigins,
+  });
 
-//   return corsMiddleware(c, next);
-// });
+  return corsMiddleware(c, next);
+});
 
 
 let isWasmInitialized = false;
