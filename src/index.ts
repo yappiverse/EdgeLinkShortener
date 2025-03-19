@@ -180,8 +180,8 @@ app.get("/", async (c) => {
         </div>
         <button id="download-btn" class="hidden" onclick="downloadQRCode()">Download & Save</button>
         <p>
-          <a href="https://github.com/yappiverse" target="_blank" class="github-link">
-            ⭐ Check out my GitHub
+          <a href="https://github.com/yappiverse/EdgeLinkShortener" target="_blank" class="github-link">
+            ⭐ Check out this Repo
           </a>
         </p>
       </div>
