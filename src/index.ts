@@ -15,22 +15,22 @@ export type Bindings = {
 
 const app = new OpenAPIHono<{ Bindings: Bindings }>();
 
-app.use('/api/*', async (c, next) => {
-  const allowedOrigins = [c.env.URL]; // Allowed origins from env
-  const origin = c.req.header('Origin'); // Get Origin header
+// app.use('/api/*', async (c, next) => {
+//   const allowedOrigins = [c.env.URL]; // Allowed origins from env
+//   const origin = c.req.header('Origin'); // Get Origin header
 
-  // If origin is missing or not allowed, reject the request
-  if (!origin || !allowedOrigins.includes(origin)) {
-    return c.text('Forbidden: Origin not allowed', 403);
-  }
+//   // If origin is missing or not allowed, reject the request
+//   if (!origin || !allowedOrigins.includes(origin)) {
+//     return c.text('Forbidden: Origin not allowed', 403);
+//   }
 
-  // Apply CORS middleware if the origin is allowed
-  const corsMiddleware = cors({
-    origin: allowedOrigins,
-  });
+//   // Apply CORS middleware if the origin is allowed
+//   const corsMiddleware = cors({
+//     origin: allowedOrigins,
+//   });
 
-  return corsMiddleware(c, next);
-});
+//   return corsMiddleware(c, next);
+// });
 
 
 let isWasmInitialized = false;
@@ -80,9 +80,9 @@ app.get("/", async (c) => {
         body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f5f5f5; margin: 0; padding: 20px; }
         .container { width: 100%; max-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); text-align: center; }
         input, select, button { width: 100%; padding: 12px; margin-top: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; outline: none; }
-        button { background: #000; color: white; cursor: pointer; font-weight: bold; transition: background 0.3s; }
+        button { background: #000; color: white; cursor: pointer; font-weight: bold; transition: background 0.3s, transform 0.2s ease; }
         button:hover { background: #333; }
-        img { margin-top: 20px; width: 100%; max-width: 250px; display: none; margin-left: auto; margin-right: auto; }
+        img { margin-top: 20px; width: 100%; max-width: 250px; display: none; margin-left: auto; margin-right: auto; opacity: 0; transition: opacity 0.5s ease-in-out; }
         .hidden { display: none; }
         #url-info { margin-top: 20px; text-align: left; font-size: 14px; }
         #url-info p { margin: 10px 0; }
@@ -98,22 +98,10 @@ app.get("/", async (c) => {
           width: 100%;
           transition: background 0.3s, transform 0.2s ease;
         }
-
-        .copy-btn:hover {
-          background: #0056b3;
-        }
-
-        .copy-btn:active {
-          transform: scale(0.95);
-        }
-
-        .copy-btn.copied {
-          background: #28a745 !important; /* Green when copied */
-          transform: scale(1.01);
-        }
-
+        .copy-btn:hover { background: #0056b3; }
+        .copy-btn:active { transform: scale(0.95); }
+        .copy-btn.copied { background: #28a745 !important; transform: scale(1.01); }
         .error-message { color: red; font-size: 14px; margin-top: 10px; display: none; }
-
         .toast {
           position: fixed;
           top: 20px;
@@ -125,195 +113,235 @@ app.get("/", async (c) => {
           font-size: 14px;
           opacity: 0;
           transition: opacity 0.3s ease, transform 0.3s ease;
-          box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3); /* Soft blue glow */
+          box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3);
         }
-
         .toast.show {
           opacity: 1;
           transform: translateY(10px);
         }
-
-
-
-        </style>
-      </head>
-      <body>
-                <div class="container">
-          <input type="text" id="qr-input" placeholder="Enter URL or text" />
-          <div class="error-message" id="error-message">Please enter a valid URL.</div>
-          <select id="format">
-            <option value="png">PNG</option>
-            <option value="svg">SVG</option>
-          </select>
-          <img id="qr-code" alt="QR Code" />
-          <div id="url-info" class="hidden">
-            <p><strong>Original URL:</strong> <span id="original-url" class="url-text"></span></p>
-            <p>
-              <strong>Shortened URL:</strong> 
-              <span id="short-url" class="url-text"></span>
-              <button class="copy-btn" onclick="copyToClipboard()">Copy</button>
-            </p>
-          </div>
-          <button id="download-btn" class="hidden" onclick="downloadQRCode()">Download & Save</button>
-
-          <!-- GitHub Link -->
+        /* GitHub Link Hover Animation */
+        .github-link {
+          display: inline-block;
+          margin-top: 20px;
+          text-decoration: none;
+          color: #007bff;
+          font-weight: bold;
+          position: relative;
+          transition: color 0.3s ease;
+        }
+        .github-link::after {
+          content: "";
+          position: absolute;
+          left: 0;
+          bottom: -2px;
+          width: 100%;
+          height: 2px;
+          background: #007bff;
+          transform: scaleX(0);
+          transition: transform 0.3s ease;
+        }
+        .github-link:hover {
+          color: #0056b3;
+        }
+        .github-link:hover::after {
+          transform: scaleX(1);
+        }
+        /* QR Code Fade-in Animation */
+        img.fade-in {
+          opacity: 1 !important;
+        }
+        /* Download Button Animation */
+        .download-animate {
+          animation: scaleUp 0.3s ease-in-out;
+        }
+        @keyframes scaleUp {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+          100% { transform: scale(1); }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <input type="text" id="qr-input" placeholder="Enter URL or text" />
+        <div class="error-message" id="error-message">Please enter a valid URL.</div>
+        <select id="format">
+          <option value="png">PNG</option>
+          <option value="svg">SVG</option>
+        </select>
+        <img id="qr-code" alt="QR Code" />
+        <div id="url-info" class="hidden">
+          <p><strong>Original URL:</strong> <span id="original-url" class="url-text"></span></p>
           <p>
-            <a href="https://github.com/yappiverse" target="_blank" style="display: inline-block; margin-top: 20px; text-decoration: none; color: #007bff; font-weight: bold;">
-              ⭐ Check out my GitHub
-            </a>
+            <strong>Shortened URL:</strong> 
+            <span id="short-url" class="url-text"></span>
+            <button class="copy-btn" onclick="copyToClipboard()">Copy</button>
           </p>
         </div>
+        <button id="download-btn" class="hidden" onclick="downloadQRCode()">Download & Save</button>
+        <p>
+          <a href="https://github.com/yappiverse" target="_blank" class="github-link">
+            ⭐ Check out my GitHub
+          </a>
+        </p>
+      </div>
+      
+          <script>
+      // Global variable to hold the latest response data from /api/generateShortenedUrl
+      let currentQrData = null;
+      let isUrlSaved = false;
 
-    
-        <script>
-    // Global variable to hold the latest response data from /api/generateShortenedUrl
-    let currentQrData = null;
-    let isUrlSaved = false;
-
-    function debounce(func, delay) {
-      clearTimeout(debounce.timer);
-      debounce.timer = setTimeout(func, delay);
-    }
-
-    function isValidUrl(url) {
-      try {
-        new URL(url);
-        return true;
-      } catch {
-        return false;
-      }
-    }
-
-    // Updated API call: returns the entire JSON response including qrCode
-    async function generateShortUrl(input) {
-      const res = await fetch("/api/generateShortenedUrl", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: input })
-      });
-      return await res.json();
-    }
-
-    async function updateQRCode() {
-      const input = document.getElementById("qr-input").value;
-      const format = document.getElementById("format").value; // still useful for labeling the download
-      const img = document.getElementById("qr-code");
-      const downloadBtn = document.getElementById("download-btn");
-      const urlInfo = document.getElementById("url-info");
-      const originalUrlSpan = document.getElementById("original-url");
-      const shortUrlSpan = document.getElementById("short-url");
-      const errorMessage = document.getElementById("error-message");
-
-      errorMessage.style.display = "none";
-
-      if (!input.trim()) {
-        img.style.display = "none";
-        downloadBtn.classList.add("hidden");
-        urlInfo.classList.add("hidden");
-        return;
+      function debounce(func, delay) {
+        clearTimeout(debounce.timer);
+        debounce.timer = setTimeout(func, delay);
       }
 
-      if (!isValidUrl(input)) {
-        errorMessage.style.display = "block";
-        img.style.display = "none";
-        downloadBtn.classList.add("hidden");
-        urlInfo.classList.add("hidden");
-        return;
-      }
-
-      // Fetch the complete response with shortened URL and QR code data
-      currentQrData = await generateShortUrl(input);
-      isUrlSaved = false;
-
-      // Use the returned Base64 encoded QR code directly for the image
-      img.src = currentQrData.qrCode;
-      img.style.display = "block";
-      downloadBtn.classList.remove("hidden");
-
-      // Update URL info display
-      originalUrlSpan.textContent = input;
-      shortUrlSpan.textContent = currentQrData.fullUrl;
-      urlInfo.classList.remove("hidden");
-    }
-
-    document.getElementById("qr-input").addEventListener("input", () => {
-      currentQrData = null;
-      isUrlSaved = false;
-      debounce(updateQRCode, 50);
-    });
-
-    async function saveUrlIfNeeded() {
-      if (!isUrlSaved && currentQrData) {
-        const input = document.getElementById("qr-input").value;
-        // currentQrData.shortenedUrl holds the short code
-        const saveResponse = await fetch("/api/saveURL", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ originalUrl: input, shortenedUrl: currentQrData.shortenedUrl }),
-        });
-
-        if (saveResponse.ok) {
-          isUrlSaved = true;
+      function isValidUrl(url) {
+        try {
+          new URL(url);
+          return true;
+        } catch {
+          return false;
         }
       }
-    }
 
-    async function copyToClipboard() {
-      const copyButton = document.querySelector(".copy-btn");
-      const shortUrlText = document.getElementById("short-url").textContent;
-      if (!shortUrlText.trim()) return;
+      // Updated API call: returns the entire JSON response including qrCode
+      async function generateShortUrl(input) {
+        const res = await fetch("/api/generateShortenedUrl", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: input })
+        });
+        return await res.json();
+      }
 
-      await saveUrlIfNeeded();
+      async function updateQRCode() {
+        const input = document.getElementById("qr-input").value;
+        const format = document.getElementById("format").value;
+        const img = document.getElementById("qr-code");
+        const downloadBtn = document.getElementById("download-btn");
+        const urlInfo = document.getElementById("url-info");
+        const originalUrlSpan = document.getElementById("original-url");
+        const shortUrlSpan = document.getElementById("short-url");
+        const errorMessage = document.getElementById("error-message");
 
-      navigator.clipboard.writeText(shortUrlText).then(() => {
-        showToast("✅ Link copied to clipboard!");
+        errorMessage.style.display = "none";
 
-        // Button Animation
-        copyButton.classList.add("copied");
-        setTimeout(() => {
-          copyButton.classList.remove("copied");
-        }, 1000);
+        if (!input.trim()) {
+            img.style.display = "none";
+            img.classList.remove("fade-in");
+            downloadBtn.classList.add("hidden");
+            urlInfo.classList.add("hidden");
+            return;
+        }
+
+        if (!isValidUrl(input)) {
+            errorMessage.style.display = "block";
+            img.style.display = "none";
+            img.classList.remove("fade-in");
+            downloadBtn.classList.add("hidden");
+            urlInfo.classList.add("hidden");
+            return;
+        }
+
+        // Fetch the complete response with shortened URL and QR code data
+        currentQrData = await generateShortUrl(input);
+        isUrlSaved = false;
+
+        if (currentQrData.qrCode) {
+            img.src = currentQrData.qrCode; 
+            img.style.display = "block";
+            img.classList.add("fade-in");
+            downloadBtn.classList.remove("hidden");
+
+            // Update URL info display
+            originalUrlSpan.textContent = input;
+            shortUrlSpan.textContent = currentQrData.fullUrl;
+            urlInfo.classList.remove("hidden");
+        } else {
+            console.error("QR Code data missing from API response");
+            errorMessage.style.display = "block";
+        }
+      }
+
+
+      document.getElementById("qr-input").addEventListener("input", () => {
+        currentQrData = null;
+        isUrlSaved = false;
+        debounce(updateQRCode, 50);
       });
-    }
 
-    function showToast(message) {
-      const toast = document.createElement("div");
-      toast.className = "toast";
-      toast.textContent = message;
-      document.body.appendChild(toast);
+      async function saveUrlIfNeeded() {
+        if (!isUrlSaved && currentQrData) {
+          const input = document.getElementById("qr-input").value;
+          // currentQrData.shortenedUrl holds the short code
+          const saveResponse = await fetch("/api/saveURL", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ originalUrl: input, shortenedUrl: currentQrData.shortenedUrl }),
+          });
 
-      setTimeout(() => {
-        toast.classList.add("show");
-      }, 100); // Small delay to trigger animation
+          if (saveResponse.ok) {
+            isUrlSaved = true;
+          }
+        }
+      }
 
-      setTimeout(() => {
-        toast.classList.remove("show");
-        setTimeout(() => toast.remove(), 300);
-      }, 2000);
-    }
+      async function copyToClipboard() {
+        const copyButton = document.querySelector(".copy-btn");
+        const shortUrlText = document.getElementById("short-url").textContent;
+        if (!shortUrlText.trim()) return;
 
-    // Updated download function uses the Base64 data URL from the API response
-    async function downloadQRCode() {
-      if (!currentQrData) return;
-      await saveUrlIfNeeded();
+        await saveUrlIfNeeded();
 
-      const downloadLink = document.createElement("a");
-      downloadLink.href = currentQrData.qrCode;
-      // Use the format (png or svg) from the selection for the file extension
-      const extension = document.getElementById("format").value;
-            downloadLink.download = \`qrcode.\${format}\`;
+        navigator.clipboard.writeText(shortUrlText).then(() => {
+          showToast("✅ Link copied to clipboard!");
 
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-    }
-  </script>
+          // Button Animation
+          copyButton.classList.add("copied");
+          setTimeout(() => {
+            copyButton.classList.remove("copied");
+          }, 1000);
+        });
+      }
+
+      function showToast(message) {
+        const toast = document.createElement("div");
+        toast.className = "toast";
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+          toast.classList.add("show");
+        }, 100); // Small delay to trigger animation
+
+        setTimeout(() => {
+          toast.classList.remove("show");
+          setTimeout(() => toast.remove(), 300);
+        }, 2000);
+      }
+
+      // Updated download function uses the Base64 data URL from the API response
+      async function downloadQRCode() {
+        if (!currentQrData) return;
+        await saveUrlIfNeeded();
+
+        const downloadLink = document.createElement("a");
+        downloadLink.href = currentQrData.qrCode;
+        // Use the format (png or svg) from the selection for the file extension
+        const extension = document.getElementById("format").value;
+              downloadLink.download = \`qrcode.\${format}\`;
+
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+      }
+    </script>
 
     </body>
     </html>
   `);
 });
-
 
 app.post("/api/generateShortenedUrl", async (c) => {
   await initializeWasm(); // Ensure WASM is initialized
@@ -369,6 +397,43 @@ app.post("/api/generateShortenedUrl", async (c) => {
   });
 });
 
+app.post("/api/saveURL", async (c) => {
+  const db = drizzle(c.env.DB);
+  const { originalUrl, shortenedUrl } = await c.req.json();
+
+
+  if (!originalUrl || !shortenedUrl) {
+    return c.json({ error: "Both originalUrl and shortenedUrl are required" }, 400);
+  }
+
+  try {
+    new URL(originalUrl);
+  } catch (error) {
+    return c.json({ error: "Invalid URL format" }, 400);
+  }
+
+  const existingUrl = await db
+    .select()
+    .from(urlsTable)
+    .where(eq(urlsTable.shortenedUrl, shortenedUrl))
+    .get();
+
+  if (existingUrl) {
+    return c.json({ error: "URL already exists" }, 400);
+  }
+
+  try {
+    await db.insert(urlsTable).values({
+      shortenedUrl,
+      originalUrl,
+    }).execute();
+
+    return c.json({ message: "URL saved successfully" }, 200);
+  } catch (error) {
+    console.error("Database error:", error);
+    return c.json({ error: "Failed to save URL" }, 500);
+  }
+});
 
 app.get(
   '/:shortUrl',
