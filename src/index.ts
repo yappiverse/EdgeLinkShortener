@@ -135,171 +135,179 @@ app.get("/", async (c) => {
 
 
 
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <input type="text" id="qr-input" placeholder="Enter URL or text" />
-            <div class="error-message" id="error-message">Please enter a valid URL.</div>
-            <select id="format">
-              <option value="png">PNG</option>
-              <option value="svg">SVG</option>
-            </select>
-            <img id="qr-code" alt="QR Code" />
-            <div id="url-info" class="hidden">
-              <p><strong>Original URL:</strong> <span id="original-url" class="url-text"></span></p>
-              <p>
-                <strong>Shortened URL:</strong> 
-                <span id="short-url" class="url-text"></span>
-                <button class="copy-btn" onclick="copyToClipboard()">Copy</button>
-              </p>
-            </div>
-            <button id="download-btn" class="hidden" onclick="downloadQRCode()">Download & Save</button>
+        </style>
+      </head>
+      <body>
+                <div class="container">
+          <input type="text" id="qr-input" placeholder="Enter URL or text" />
+          <div class="error-message" id="error-message">Please enter a valid URL.</div>
+          <select id="format">
+            <option value="png">PNG</option>
+            <option value="svg">SVG</option>
+          </select>
+          <img id="qr-code" alt="QR Code" />
+          <div id="url-info" class="hidden">
+            <p><strong>Original URL:</strong> <span id="original-url" class="url-text"></span></p>
+            <p>
+              <strong>Shortened URL:</strong> 
+              <span id="short-url" class="url-text"></span>
+              <button class="copy-btn" onclick="copyToClipboard()">Copy</button>
+            </p>
           </div>
-      
-          <script>
-      // Global variable to hold the latest response data from /api/generateShortenedUrl
-      let currentQrData = null;
-      let isUrlSaved = false;
+          <button id="download-btn" class="hidden" onclick="downloadQRCode()">Download & Save</button>
 
-      function debounce(func, delay) {
-        clearTimeout(debounce.timer);
-        debounce.timer = setTimeout(func, delay);
+          <!-- GitHub Link -->
+          <p>
+            <a href="https://github.com/yappiverse" target="_blank" style="display: inline-block; margin-top: 20px; text-decoration: none; color: #007bff; font-weight: bold;">
+              ⭐ Check out my GitHub
+            </a>
+          </p>
+        </div>
+
+    
+        <script>
+    // Global variable to hold the latest response data from /api/generateShortenedUrl
+    let currentQrData = null;
+    let isUrlSaved = false;
+
+    function debounce(func, delay) {
+      clearTimeout(debounce.timer);
+      debounce.timer = setTimeout(func, delay);
+    }
+
+    function isValidUrl(url) {
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    // Updated API call: returns the entire JSON response including qrCode
+    async function generateShortUrl(input) {
+      const res = await fetch("/api/generateShortenedUrl", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: input })
+      });
+      return await res.json();
+    }
+
+    async function updateQRCode() {
+      const input = document.getElementById("qr-input").value;
+      const format = document.getElementById("format").value; // still useful for labeling the download
+      const img = document.getElementById("qr-code");
+      const downloadBtn = document.getElementById("download-btn");
+      const urlInfo = document.getElementById("url-info");
+      const originalUrlSpan = document.getElementById("original-url");
+      const shortUrlSpan = document.getElementById("short-url");
+      const errorMessage = document.getElementById("error-message");
+
+      errorMessage.style.display = "none";
+
+      if (!input.trim()) {
+        img.style.display = "none";
+        downloadBtn.classList.add("hidden");
+        urlInfo.classList.add("hidden");
+        return;
       }
 
-      function isValidUrl(url) {
-        try {
-          new URL(url);
-          return true;
-        } catch {
-          return false;
-        }
+      if (!isValidUrl(input)) {
+        errorMessage.style.display = "block";
+        img.style.display = "none";
+        downloadBtn.classList.add("hidden");
+        urlInfo.classList.add("hidden");
+        return;
       }
 
-      // Updated API call: returns the entire JSON response including qrCode
-      async function generateShortUrl(input) {
-        const res = await fetch("/api/generateShortenedUrl", {
+      // Fetch the complete response with shortened URL and QR code data
+      currentQrData = await generateShortUrl(input);
+      isUrlSaved = false;
+
+      // Use the returned Base64 encoded QR code directly for the image
+      img.src = currentQrData.qrCode;
+      img.style.display = "block";
+      downloadBtn.classList.remove("hidden");
+
+      // Update URL info display
+      originalUrlSpan.textContent = input;
+      shortUrlSpan.textContent = currentQrData.fullUrl;
+      urlInfo.classList.remove("hidden");
+    }
+
+    document.getElementById("qr-input").addEventListener("input", () => {
+      currentQrData = null;
+      isUrlSaved = false;
+      debounce(updateQRCode, 50);
+    });
+
+    async function saveUrlIfNeeded() {
+      if (!isUrlSaved && currentQrData) {
+        const input = document.getElementById("qr-input").value;
+        // currentQrData.shortenedUrl holds the short code
+        const saveResponse = await fetch("/api/saveURL", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: input })
+          body: JSON.stringify({ originalUrl: input, shortenedUrl: currentQrData.shortenedUrl }),
         });
-        return await res.json();
-      }
 
-      async function updateQRCode() {
-        const input = document.getElementById("qr-input").value;
-        const format = document.getElementById("format").value; // still useful for labeling the download
-        const img = document.getElementById("qr-code");
-        const downloadBtn = document.getElementById("download-btn");
-        const urlInfo = document.getElementById("url-info");
-        const originalUrlSpan = document.getElementById("original-url");
-        const shortUrlSpan = document.getElementById("short-url");
-        const errorMessage = document.getElementById("error-message");
-
-        errorMessage.style.display = "none";
-
-        if (!input.trim()) {
-          img.style.display = "none";
-          downloadBtn.classList.add("hidden");
-          urlInfo.classList.add("hidden");
-          return;
+        if (saveResponse.ok) {
+          isUrlSaved = true;
         }
-
-        if (!isValidUrl(input)) {
-          errorMessage.style.display = "block";
-          img.style.display = "none";
-          downloadBtn.classList.add("hidden");
-          urlInfo.classList.add("hidden");
-          return;
-        }
-
-        // Fetch the complete response with shortened URL and QR code data
-        currentQrData = await generateShortUrl(input);
-        isUrlSaved = false;
-
-        // Use the returned Base64 encoded QR code directly for the image
-        img.src = currentQrData.qrCode;
-        img.style.display = "block";
-        downloadBtn.classList.remove("hidden");
-
-        // Update URL info display
-        originalUrlSpan.textContent = input;
-        shortUrlSpan.textContent = currentQrData.fullUrl;
-        urlInfo.classList.remove("hidden");
       }
+    }
 
-      document.getElementById("qr-input").addEventListener("input", () => {
-        currentQrData = null;
-        isUrlSaved = false;
-        debounce(updateQRCode, 50);
+    async function copyToClipboard() {
+      const copyButton = document.querySelector(".copy-btn");
+      const shortUrlText = document.getElementById("short-url").textContent;
+      if (!shortUrlText.trim()) return;
+
+      await saveUrlIfNeeded();
+
+      navigator.clipboard.writeText(shortUrlText).then(() => {
+        showToast("✅ Link copied to clipboard!");
+
+        // Button Animation
+        copyButton.classList.add("copied");
+        setTimeout(() => {
+          copyButton.classList.remove("copied");
+        }, 1000);
       });
+    }
 
-      async function saveUrlIfNeeded() {
-        if (!isUrlSaved && currentQrData) {
-          const input = document.getElementById("qr-input").value;
-          // currentQrData.shortenedUrl holds the short code
-          const saveResponse = await fetch("/api/saveURL", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ originalUrl: input, shortenedUrl: currentQrData.shortenedUrl }),
-          });
+    function showToast(message) {
+      const toast = document.createElement("div");
+      toast.className = "toast";
+      toast.textContent = message;
+      document.body.appendChild(toast);
 
-          if (saveResponse.ok) {
-            isUrlSaved = true;
-          }
-        }
-      }
+      setTimeout(() => {
+        toast.classList.add("show");
+      }, 100); // Small delay to trigger animation
 
-      async function copyToClipboard() {
-        const copyButton = document.querySelector(".copy-btn");
-        const shortUrlText = document.getElementById("short-url").textContent;
-        if (!shortUrlText.trim()) return;
+      setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 300);
+      }, 2000);
+    }
 
-        await saveUrlIfNeeded();
+    // Updated download function uses the Base64 data URL from the API response
+    async function downloadQRCode() {
+      if (!currentQrData) return;
+      await saveUrlIfNeeded();
 
-        navigator.clipboard.writeText(shortUrlText).then(() => {
-          showToast("✅ Link copied to clipboard!");
+      const downloadLink = document.createElement("a");
+      downloadLink.href = currentQrData.qrCode;
+      // Use the format (png or svg) from the selection for the file extension
+      const extension = document.getElementById("format").value;
+            downloadLink.download = \`qrcode.\${format}\`;
 
-          // Button Animation
-          copyButton.classList.add("copied");
-          setTimeout(() => {
-            copyButton.classList.remove("copied");
-          }, 1000);
-        });
-      }
-
-      function showToast(message) {
-        const toast = document.createElement("div");
-        toast.className = "toast";
-        toast.textContent = message;
-        document.body.appendChild(toast);
-
-        setTimeout(() => {
-          toast.classList.add("show");
-        }, 100); // Small delay to trigger animation
-
-        setTimeout(() => {
-          toast.classList.remove("show");
-          setTimeout(() => toast.remove(), 300);
-        }, 2000);
-      }
-
-      // Updated download function uses the Base64 data URL from the API response
-      async function downloadQRCode() {
-        if (!currentQrData) return;
-        await saveUrlIfNeeded();
-
-        const downloadLink = document.createElement("a");
-        downloadLink.href = currentQrData.qrCode;
-        // Use the format (png or svg) from the selection for the file extension
-        const extension = document.getElementById("format").value;
-              downloadLink.download = \`qrcode.\${format}\`;
-
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-      }
-    </script>
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    }
+  </script>
 
     </body>
     </html>
@@ -356,8 +364,8 @@ app.post("/api/generateShortenedUrl", async (c) => {
 
   return c.json({
     shortenedUrl: uniqueId,
-    fullUrl: `${c.env.URL}/${uniqueId}`,
-    qrCode: qrBase64, // 🔥 Base64 encoded QR Code (PNG or SVG)
+    fullUrl: `${c.env.URL}${uniqueId}`,
+    qrCode: qrBase64,
   });
 });
 
