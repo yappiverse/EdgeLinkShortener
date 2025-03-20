@@ -180,7 +180,7 @@ To generate a secure secret key:
 
 ## Contributing
 
-Found a bug? Have an idea? We'd love your help!
+Found a bug? Have an idea? I'd love your help!
 
 1. Fork the repo
 2. Create a new branch
