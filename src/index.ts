@@ -401,7 +401,7 @@ app.post("/api/generateShortenedUrl", async (c) => {
 
   return c.json({
     shortenedUrl: uniqueId,
-    fullUrl: `${c.env.URL}${uniqueId}`,
+    fullUrl: `${c.env.URL}/${uniqueId}`,
     qrCode: qrBase64,
   });
 });
