@@ -55,6 +55,36 @@ Hey there! 👋 This is a fun little project that lets you create QR codes and s
    - This approach provides PNG support without requiring native libraries
    - WASM is initialized once at startup for optimal performance
 
+## Security Features
+
+### URL Encryption
+
+All URLs are encrypted before being stored in the database using AES-GCM encryption with a 256-bit key. This ensures that even if someone gains access to the database, they cannot read the original URLs without the secret key.
+
+To generate a secure secret key:
+
+1. Open your terminal
+2. Run the following command:
+   ```bash
+   openssl rand -hex 32
+   ```
+3. This will generate a 64-character hexadecimal string (32 bytes) that you can use as your secret key
+
+### Setting Up Encryption
+
+1. Add the generated secret key to your environment variables:
+
+   - For development: Add to `.dev.vars`
+     ```
+     secretKey=your_generated_secret_key_here
+     ```
+   - For production: Add to `.prod.vars`
+     ```
+     secretKey=your_generated_secret_key_here
+     ```
+
+2. The system will automatically use this key to encrypt and decrypt URLs
+
 ## Let's Get Started!
 
 ### Quick Setup
@@ -67,10 +97,78 @@ Hey there! 👋 This is a fun little project that lets you create QR codes and s
 
 ### Deployment
 
-1. Create a D1 database in Cloudflare
-2. Update `wrangler.toml` with your database ID
-3. Add your Cloudflare credentials in `.prod.vars`
-4. Deploy: `bun run deploy`
+#### Setting Up D1 Database
+
+1. Create a D1 database:
+
+   Using Wrangler CLI:
+
+   ```bash
+   bunx wrangler d1 create EdgeLinkDB
+   ```
+
+   Or via Cloudflare Dashboard:
+
+   - Go to Cloudflare Dashboard → Workers → D1
+   - Click "Create Database"
+   - Name your database (e.g., `EdgeLinkDB`)
+   - Select your preferred region
+   - Click "Create"
+
+2. Bind Database to Worker:
+
+   - In your Cloudflare Dashboard, go to Workers → your-worker → Settings → Variables
+   - Under D1 Database Bindings, click "Edit Bindings"
+   - Add a new binding:
+     - Variable name: `DB`
+     - Select your created database
+   - Save changes
+
+3. Update Database Name in package.json:
+
+   After creating your database, make sure to update the database name in package.json. Replace "EdgeLinkDB" with your actual database name in these commands:
+
+   ```json
+   "db:touch": "wrangler d1 execute YOUR_DB_NAME --local --command='SELECT 1'",
+   "db:generate": "drizzle-kit generate",
+   "db:migrate": "wrangler d1 migrations apply YOUR_DB_NAME --local"
+   ```
+
+4. Update Configuration:
+
+   - In `wrangler.toml`, add:
+     ```toml
+     [[d1_databases]]
+     binding = "DB"
+     database_name = "your-database-name"
+     database_id = "your-database-id"
+     ```
+   - In `.prod.vars`, add:
+     ```
+     CLOUDFLARE_D1_TOKEN=your_api_token
+     CLOUDFLARE_ACCOUNT_ID=your_account_id
+     CLOUDFLARE_DATABASE_ID=your_database_id
+     ```
+
+5. Run Migrations:
+
+   For local development:
+
+   ```bash
+   bun run db:setup
+   ```
+
+   For production:
+
+   ```bash
+   bun run db:migrate:prod
+   ```
+
+6. Deploy:
+   ```bash
+   bun run deploy
+   ```
+   Verify deployment in Cloudflare Dashboard
 
 ## Tech Stack
 
