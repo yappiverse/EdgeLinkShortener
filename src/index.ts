@@ -19,22 +19,22 @@ export type Bindings = {
 
 const app = new OpenAPIHono<{ Bindings: Bindings }>();
 
-app.use('/api/*', async (c, next) => {
-  const allowedOrigins = [c.env.URL]; // Allowed origins from env
-  const origin = c.req.header('Origin'); // Get Origin header
+// app.use('/api/*', async (c, next) => {
+//   const allowedOrigins = [c.env.URL]; // Allowed origins from env
+//   const origin = c.req.header('Origin'); // Get Origin header
 
-  // If origin is missing or not allowed, reject the request
-  if (!origin || !allowedOrigins.includes(origin)) {
-    return c.text('Forbidden: Origin not allowed', 403);
-  }
+//   // If origin is missing or not allowed, reject the request
+//   if (!origin || !allowedOrigins.includes(origin)) {
+//     return c.text('Forbidden: Origin not allowed', 403);
+//   }
 
-  // Apply CORS middleware if the origin is allowed
-  const corsMiddleware = cors({
-    origin: allowedOrigins,
-  });
+//   // Apply CORS middleware if the origin is allowed
+//   const corsMiddleware = cors({
+//     origin: allowedOrigins,
+//   });
 
-  return corsMiddleware(c, next);
-});
+//   return corsMiddleware(c, next);
+// });
 
 
 let isWasmInitialized = false;
@@ -214,62 +214,76 @@ app.get("/", async (c) => {
 
       // Updated API call: returns the entire JSON response including qrCode
       async function generateShortUrl(input) {
+        const format = document.getElementById("format").value; // Get selected format
         const res = await fetch("/api/generateShortenedUrl", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: input })
+          body: JSON.stringify({ url: input, format }),
         });
         return await res.json();
       }
 
       async function updateQRCode() {
-        const input = document.getElementById("qr-input").value;
-        const format = document.getElementById("format").value;
-        const img = document.getElementById("qr-code");
-        const downloadBtn = document.getElementById("download-btn");
-        const urlInfo = document.getElementById("url-info");
-        const originalUrlSpan = document.getElementById("original-url");
-        const shortUrlSpan = document.getElementById("short-url");
-        const errorMessage = document.getElementById("error-message");
+  const input = document.getElementById("qr-input").value;
+  const format = document.getElementById("format").value;
+  const img = document.getElementById("qr-code");
+  const downloadBtn = document.getElementById("download-btn");
+  const urlInfo = document.getElementById("url-info");
+  const originalUrlSpan = document.getElementById("original-url");
+  const shortUrlSpan = document.getElementById("short-url");
+  const errorMessage = document.getElementById("error-message");
 
-        errorMessage.style.display = "none";
+  errorMessage.style.display = "none";
 
-        if (!input.trim()) {
-            img.style.display = "none";
-            img.classList.remove("fade-in");
-            downloadBtn.classList.add("hidden");
-            urlInfo.classList.add("hidden");
-            return;
-        }
+  if (!input.trim()) {
+    img.style.display = "none";
+    img.classList.remove("fade-in");
+    downloadBtn.classList.add("hidden");
+    urlInfo.classList.add("hidden");
+    return;
+  }
 
-        if (!isValidUrl(input)) {
-            errorMessage.style.display = "block";
-            img.style.display = "none";
-            img.classList.remove("fade-in");
-            downloadBtn.classList.add("hidden");
-            urlInfo.classList.add("hidden");
-            return;
-        }
+  if (!isValidUrl(input)) {
+    errorMessage.style.display = "block";
+    img.style.display = "none";
+    img.classList.remove("fade-in");
+    downloadBtn.classList.add("hidden");
+    urlInfo.classList.add("hidden");
+    return;
+  }
 
-        // Fetch the complete response with shortened URL and QR code data
-        currentQrData = await generateShortUrl(input);
-        isUrlSaved = false;
+  // Fetch both PNG & SVG in a single request
+  currentQrData = await generateShortUrl(input);
+  isUrlSaved = false;
 
-        if (currentQrData.qrCode) {
-            img.src = currentQrData.qrCode; 
-            img.style.display = "block";
-            img.classList.add("fade-in");
-            downloadBtn.classList.remove("hidden");
+  if (currentQrData.qrPng && currentQrData.qrSvg) {
+    // Store both images
+    img.dataset.png = currentQrData.qrPng;
+    img.dataset.svg = currentQrData.qrSvg;
 
-            // Update URL info display
-            originalUrlSpan.textContent = input;
-            shortUrlSpan.textContent = currentQrData.fullUrl;
-            urlInfo.classList.remove("hidden");
-        } else {
-            console.error("QR Code data missing from API response");
-            errorMessage.style.display = "block";
-        }
-      }
+    // Set initial format
+    img.src = format === "svg" ? currentQrData.qrSvg : currentQrData.qrPng;
+    img.style.display = "block";
+    img.classList.add("fade-in");
+    downloadBtn.classList.remove("hidden");
+
+    // Update URL info display
+    originalUrlSpan.textContent = input;
+    shortUrlSpan.textContent = currentQrData.fullUrl;
+    urlInfo.classList.remove("hidden");
+  } else {
+    console.error("QR Code data missing from API response");
+    errorMessage.style.display = "block";
+  }
+}
+
+document.getElementById("format").addEventListener("change", () => {
+  const img = document.getElementById("qr-code");
+  const format = document.getElementById("format").value;
+
+  // Switch between stored PNG & SVG
+  img.src = format === "svg" ? img.dataset.svg : img.dataset.png;
+});
 
 
       document.getElementById("qr-input").addEventListener("input", () => {
@@ -334,21 +348,40 @@ app.get("/", async (c) => {
         }, 2000);
       }
 
-      // Updated download function uses the Base64 data URL from the API response
-      async function downloadQRCode() {
-        if (!currentQrData) return;
-        await saveUrlIfNeeded();
+async function downloadQRCode() {
+  if (!currentQrData) return;
+  await saveUrlIfNeeded();
 
-        const downloadLink = document.createElement("a");
-        downloadLink.href = currentQrData.qrCode;
-        // Use the format (png or svg) from the selection for the file extension
-        const extension = document.getElementById("format").value;
-              downloadLink.download = \`qrcode.\${format}\`;
+  const format = document.getElementById("format").value;
+  const shortUrl = currentQrData.shortenedUrl.replace(/\W+/g, ""); // Clean filename
+    const fileName = \`qrcode_\${shortUrl}.\${format}\`;
 
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-      }
+  const downloadLink = document.createElement("a");
+
+  if (format === "svg") {
+    // Decode Base64 SVG data
+    const svgData = atob(currentQrData.qrSvg.split(",")[1]);
+    const blob = new Blob([svgData], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+
+    downloadLink.href = url;
+    downloadLink.download = fileName;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+
+    URL.revokeObjectURL(url); // Clean up
+  } else {
+    downloadLink.href = currentQrData.qrPng;
+    downloadLink.download = fileName;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+  }
+}
+
+
+
     </script>
 
     </body>
@@ -360,21 +393,11 @@ app.post("/api/generateShortenedUrl", async (c) => {
   await initializeWasm(); // Ensure WASM is initialized
 
   const db = drizzle(c.env.DB);
-  const { url, size = 600, format = "png" } = await c.req.json();
+  const { url, size = 600 } = await c.req.json();
 
   if (!url) return c.json({ error: "URL is required" }, 400);
 
-  let uniqueId: string;
-  let isUnique = false;
-  const existingUrls = await db.select({ shortenedUrl: urlsTable.shortenedUrl }).from(urlsTable).all();
-
-  do {
-    uniqueId = generateShortUrl(url);
-    isUnique = !existingUrls.some((entry) => entry.shortenedUrl === uniqueId);
-    if (!isUnique) {
-      uniqueId += toBase62(Math.floor(Math.random() * 62));
-    }
-  } while (!isUnique);
+  let uniqueId = generateShortUrl(url);
 
   // Generate QR Code
   const qrCode = new qr({
@@ -390,25 +413,24 @@ app.post("/api/generateShortenedUrl", async (c) => {
   let svg = qrCode.svg();
   svg = svg.replace('<svg', `<svg viewBox="0 0 ${size} ${size}" preserveAspectRatio="xMidYMid meet"`);
 
-  let qrBase64: string;
+  let qrPngBase64;
+  let qrSvgBase64 = `data:image/svg+xml;base64,${btoa(svg)}`;
 
-  if (format === "svg") {
-    qrBase64 = `data:image/svg+xml;base64,${btoa(svg)}`;
-  } else {
-    try {
-      const pngBuffer = await svg2png(svg, { width: Number(size), height: Number(size) });
-      qrBase64 = `data:image/png;base64,${Buffer.from(pngBuffer).toString("base64")}`;
-    } catch {
-      return c.json({ error: "Error generating QR code" }, 500);
-    }
+  try {
+    const pngBuffer = await svg2png(svg, { width: Number(size), height: Number(size) });
+    qrPngBase64 = `data:image/png;base64,${Buffer.from(pngBuffer).toString("base64")}`;
+  } catch {
+    return c.json({ error: "Error generating PNG QR code" }, 500);
   }
 
   return c.json({
     shortenedUrl: uniqueId,
     fullUrl: `${c.env.URL}/${uniqueId}`,
-    qrCode: qrBase64,
+    qrPng: qrPngBase64,
+    qrSvg: qrSvgBase64,
   });
 });
+
 
 async function encrypt(text: string, secretKey: string) {
   const encoder = new TextEncoder();
