@@ -8,9 +8,13 @@ import { eq } from "drizzle-orm";
 import { createHash } from 'crypto';
 import { cache } from "hono/cache";
 import { cors } from "hono/cors";
+import crypto from 'crypto';
+
+
 export type Bindings = {
   DB: D1Database;
   URL: string;
+  secretKey: string
 };
 
 const app = new OpenAPIHono<{ Bindings: Bindings }>();
@@ -406,10 +410,66 @@ app.post("/api/generateShortenedUrl", async (c) => {
   });
 });
 
+async function encrypt(text: string, secretKey: string) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secretKey).slice(0, 32),
+    { name: "AES-GCM" },
+    false,
+    ["encrypt"]
+  );
+
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encryptedData = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    data
+  );
+
+  return `${btoa(String.fromCharCode(...iv))}:${btoa(
+    String.fromCharCode(...new Uint8Array(encryptedData))
+  )}`;
+}
+
+async function decrypt(encryptedText: string, secretKey: string) {
+  const [ivBase64, encryptedBase64] = encryptedText.split(":");
+  if (!ivBase64 || !encryptedBase64) throw new Error("Invalid encrypted format");
+
+  const iv = new Uint8Array(
+    atob(ivBase64)
+      .split("")
+      .map((c) => c.charCodeAt(0))
+  );
+
+  const encryptedData = new Uint8Array(
+    atob(encryptedBase64)
+      .split("")
+      .map((c) => c.charCodeAt(0))
+  );
+
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secretKey).slice(0, 32),
+    { name: "AES-GCM" },
+    false,
+    ["decrypt"]
+  );
+
+  const decryptedBuffer = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    key,
+    encryptedData
+  );
+
+  return new TextDecoder().decode(decryptedBuffer);
+}
+
 app.post("/api/saveURL", async (c) => {
   const db = drizzle(c.env.DB);
   const { originalUrl, shortenedUrl } = await c.req.json();
-
 
   if (!originalUrl || !shortenedUrl) {
     return c.json({ error: "Both originalUrl and shortenedUrl are required" }, 400);
@@ -432,9 +492,10 @@ app.post("/api/saveURL", async (c) => {
   }
 
   try {
+    const encryptedUrl = await encrypt(originalUrl, c.env.secretKey);
     await db.insert(urlsTable).values({
       shortenedUrl,
-      originalUrl,
+      originalUrl: encryptedUrl,
     }).execute();
 
     return c.json({ message: "URL saved successfully" }, 200);
@@ -575,7 +636,14 @@ app.get(
       );
     }
 
-    return c.redirect(result.originalUrl, 302);
+    try {
+
+      const decryptedUrl = await decrypt(result.originalUrl, c.env.secretKey);
+      return c.redirect(decryptedUrl, 302);
+    } catch (error) {
+      console.error("Decryption error:", error);
+      return c.json({ error: "Failed to retrieve URL" }, 500);
+    }
   }
 );
 
