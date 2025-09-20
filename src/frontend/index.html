@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QR Code Generator</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='90' font-size='90'%3E🔗%3C/text%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <!-- Cloudflare Turnstile script -->
+    <script
+      src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+      async
+      defer
+    ></script>
+  </head>
+  <body>
+    <div class="container">
+      <input
+        type="text"
+        id="qr-input"
+        placeholder="Enter URL (e.g., https://shortener.web.id)"
+      />
+      <div class="error-message" id="error-message">
+        Please enter a valid URL.
+      </div>
+
+      <select id="format">
+        <option value="png">PNG</option>
+        <option value="svg">SVG</option>
+      </select>
+
+      <!-- Cloudflare Turnstile CAPTCHA -->
+      <div class="captcha-wrapper">
+        <div
+          class="cf-challenge"
+          data-sitekey="0x4AAAAAAB2OzTHq6apWD4Zu"
+          data-callback="onTurnstileSuccess"
+        ></div>
+      </div>
+      <div class="error-message" id="captcha-error">
+        Please complete the CAPTCHA to continue.
+      </div>
+
+      <img id="qr-code" alt="QR Code" />
+
+      <div id="url-info" class="hidden">
+        <p>
+          <strong>Original URL:</strong>
+          <span id="original-url" class="url-text"></span>
+        </p>
+        <p>
+          <strong>Shortened URL:</strong>
+          <span id="short-url" class="url-text"></span>
+          <button class="copy-btn" onclick="copyToClipboard()">Copy</button>
+        </p>
+      </div>
+
+      <button id="download-btn" class="hidden" onclick="downloadQRCode()">
+        Download & Save
+      </button>
+
+      <p>
+        <a
+          href="https://github.com/yappiverse/EdgeLinkShortener"
+          target="_blank"
+          class="github-link"
+        >
+          ⭐ Check out this Repo
+        </a>
+      </p>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+      let turnstileToken = null;
+
+      function onTurnstileSuccess(token) {
+        turnstileToken = token;
+        document.getElementById("captcha-error").style.display = "none";
+      }
+
+      // Expose globally for script.js
+      window.getTurnstileToken = () => turnstileToken;
+    </script>
+  </body>
+</html>
