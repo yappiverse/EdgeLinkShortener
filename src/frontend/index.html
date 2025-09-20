@@ -33,18 +33,6 @@
         <option value="svg">SVG</option>
       </select>
 
-      <!-- Cloudflare Turnstile CAPTCHA -->
-      <div class="captcha-wrapper">
-        <div
-          class="cf-challenge"
-          data-sitekey="0x4AAAAAAB2OzTHq6apWD4Zu"
-          data-callback="onTurnstileSuccess"
-        ></div>
-      </div>
-      <div class="error-message" id="captcha-error">
-        Please complete the CAPTCHA to continue.
-      </div>
-
       <img id="qr-code" alt="QR Code" />
 
       <div id="url-info" class="hidden">
@@ -62,7 +50,17 @@
       <button id="download-btn" class="hidden" onclick="downloadQRCode()">
         Download & Save
       </button>
-
+      <!-- Cloudflare Turnstile CAPTCHA -->
+      <div class="captcha-wrapper">
+        <div
+          class="cf-challenge"
+          data-sitekey="0x4AAAAAAB2OzTHq6apWD4Zu"
+          data-callback="onTurnstileSuccess"
+        ></div>
+      </div>
+      <div class="error-message" id="captcha-error">
+        Please complete the CAPTCHA to continue.
+      </div>
       <p>
         <a
           href="https://github.com/yappiverse/EdgeLinkShortener"
@@ -83,7 +81,6 @@
         document.getElementById("captcha-error").style.display = "none";
       }
 
-      // Expose globally for script.js
       window.getTurnstileToken = () => turnstileToken;
     </script>
   </body>

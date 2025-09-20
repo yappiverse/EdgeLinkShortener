@@ -20,6 +20,7 @@ function isValidUrl(url) {
 async function generateShortUrl(input) {
   const format = document.getElementById("format").value;
   const cfToken = window.getTurnstileToken?.();
+  console.log("Turnstile token:", cfToken);
 
   if (!cfToken) {
     document.getElementById("captcha-error").style.display = "block";
@@ -32,7 +33,14 @@ async function generateShortUrl(input) {
     body: JSON.stringify({ url: input, format, cfToken }),
   });
 
-  return await res.json();
+  const data = await res.json();
+
+  if (window.turnstile) {
+    const cfWidget = document.querySelector(".cf-challenge");
+    window.turnstile.reset(cfWidget);
+  }
+
+  return data;
 }
 
 async function updateQRCode() {

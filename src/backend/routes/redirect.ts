@@ -17,7 +17,7 @@ redirectRoute.get(
 
         const result = await db.select().from(urlsTable).where(eq(urlsTable.shortenedUrl, shortUrl)).get();
         if (!result) {
-            return fetch(new URL("/404.html", c.req.url).toString());
+            return c.text('Not Found', 404)
         }
 
         try {
