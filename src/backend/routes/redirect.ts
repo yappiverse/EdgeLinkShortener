@@ -9,16 +9,16 @@ import type { Bindings } from "../../types";
 export const redirectRoute = new OpenAPIHono<{ Bindings: Bindings }>();
 
 redirectRoute.get(
-    "/:shortUrl",
-    cache({ cacheName: "short-url-cache", cacheControl: "public, max-age=3600" }),
-    async (c) => {
-        const db = drizzle(c.env.DB);
-        const shortUrl = c.req.param("shortUrl");
+  "/:shortUrl",
+  cache({ cacheName: "short-url-cache", cacheControl: "public, max-age=3600" }),
+  async (c) => {
+    const db = drizzle(c.env.DB);
+    const shortUrl = c.req.param("shortUrl");
 
-        const result = await db.select().from(urlsTable).where(eq(urlsTable.shortenedUrl, shortUrl)).get();
-        if (!result) {
-            return c.html(
-                `<!DOCTYPE html>
+    const result = await db.select().from(urlsTable).where(eq(urlsTable.shortenedUrl, shortUrl)).get();
+    if (!result) {
+      return c.html(
+        `<!DOCTYPE html>
           <html lang="en">
           <head>
             <meta charset="UTF-8">
@@ -127,15 +127,15 @@ redirectRoute.get(
             </div>
           </body>
           </html>`,
-                404
-            );
-        }
-
-        try {
-            const decryptedUrl = await decrypt(result.originalUrl, c.env.secretKey);
-            return c.redirect(decryptedUrl, 302);
-        } catch {
-            return c.json({ error: "Failed to retrieve URL" }, 500);
-        }
+        404
+      );
     }
+
+    try {
+      const decryptedUrl = await decrypt(result.originalUrl, c.env.secretKey);
+      return c.redirect(decryptedUrl, 301);
+    } catch {
+      return c.json({ error: "Failed to retrieve URL" }, 500);
+    }
+  }
 );
