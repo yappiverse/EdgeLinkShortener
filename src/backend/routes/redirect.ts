@@ -8,14 +8,33 @@ import type { Bindings } from "../../types";
 
 export const redirectRoute = new OpenAPIHono<{ Bindings: Bindings }>();
 
-redirectRoute.get(
-  "/:shortUrl",
-  cache({ cacheName: "short-url-cache", cacheControl: "public, max-age=3600" }),
-  async (c) => {
-    const db = drizzle(c.env.DB);
-    const shortUrl = c.req.param("shortUrl");
+redirectRoute.get("/:shortUrl", async (c) => {
+  const shortUrl = c.req.param("shortUrl");
+  const cache = caches.default;
+  const cacheKey = new Request(c.req.url);
 
-    const result = await db.select().from(urlsTable).where(eq(urlsTable.shortenedUrl, shortUrl)).get();
+  const cachedResponse = await cache.match(cacheKey);
+  if (cachedResponse) {
+    const newResponse = new Response(cachedResponse.body, {
+      status: cachedResponse.status,
+      headers: {
+        ...Object.fromEntries(cachedResponse.headers),
+        "X-Cache-Hit": "true",
+      },
+    });
+    return newResponse;
+  }
+
+
+  let originalUrl = await c.env.EdgeLinkCache.get(shortUrl);
+  if (!originalUrl) {
+    const db = drizzle(c.env.DB);
+    const result = await db
+      .select({ originalUrl: urlsTable.originalUrl })
+      .from(urlsTable)
+      .where(eq(urlsTable.shortenedUrl, shortUrl))
+      .get();
+
     if (!result) {
       return c.html(
         `<!DOCTYPE html>
@@ -131,11 +150,26 @@ redirectRoute.get(
       );
     }
 
-    try {
-      // const decryptedUrl = await decrypt(result.originalUrl, c.env.secretKey);
-      return c.redirect(result.originalUrl, 301);
-    } catch {
-      return c.json({ error: "Failed to retrieve URL" }, 500);
-    }
+    originalUrl = result.originalUrl;
+
+    c.executionCtx.waitUntil(
+      c.env.EdgeLinkCache.put(shortUrl, originalUrl, { expirationTtl: 3600 })
+    );
   }
-);
+
+  const baseResponse = Response.redirect(originalUrl, 301);
+  const response = new Response(baseResponse.body, {
+    status: baseResponse.status,
+    headers: {
+      ...Object.fromEntries(baseResponse.headers),
+      "Cache-Control": "public, immutable, max-age=31536000",
+      "X-Cache-Hit": "false",
+    },
+  });
+  response.headers.set("Cache-Control", "public, immutable, max-age=31536000"); // 1 year
+  response.headers.set("X-Cache-Hit", "false");
+
+  c.executionCtx.waitUntil(cache.put(cacheKey, response.clone()));
+
+  return response;
+});

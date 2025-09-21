@@ -11,7 +11,7 @@ export const generateRoute = new OpenAPIHono<{ Bindings: Bindings }>();
 generateRoute.post("/api/generateShortenedUrl", async (c) => {
     await initializeWasm();
     const { url, size = 600 } = await c.req.json();
-    console.log("url", url)
+    // console.log("url", url)
     if (!url) return c.json({ error: "URL is required" }, 400);
     // if (!cfToken) return c.json({ error: "CAPTCHA token is required" }, 400);
 

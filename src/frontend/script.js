@@ -87,7 +87,7 @@ async function updateQRCode() {
     shortUrlSpan.textContent = currentQrData.fullUrl;
     urlInfo.classList.remove("hidden");
 
-    await saveUrlIfNeeded();
+    // await saveUrlIfNeeded();
   } else {
     console.error("QR Code data missing from API response");
     errorMessage.style.display = "block";
