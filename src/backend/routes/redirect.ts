@@ -20,7 +20,11 @@ redirectRoute.get(
     }
     const db = drizzle(c.env.DB);
 
-    const result = await db.select().from(urlsTable).where(eq(urlsTable.shortenedUrl, shortUrl)).get();
+    const result = await db
+      .select({ originalUrl: urlsTable.originalUrl })
+      .from(urlsTable)
+      .where(eq(urlsTable.shortenedUrl, shortUrl))
+      .get();
     if (!result) {
       return c.html(
         `<!DOCTYPE html>
@@ -138,10 +142,13 @@ redirectRoute.get(
 
     try {
       // const decryptedUrl = await decrypt(result.originalUrl, c.env.secretKey);
-      await c.env.EdgeLinkCache.put(shortUrl, result.originalUrl, {
-        expirationTtl: 3600, // 1 hour TTL
-      });
+      c.executionCtx.waitUntil(
+        c.env.EdgeLinkCache.put(shortUrl, result.originalUrl, {
+          expirationTtl: 3600,
+        })
+      );
       return c.redirect(result.originalUrl, 301);
+
     } catch {
       return c.json({ error: "Failed to retrieve URL" }, 500);
     }
