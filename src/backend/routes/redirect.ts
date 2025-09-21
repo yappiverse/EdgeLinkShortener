@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { urlsTable } from "../../db/schema";
 import { eq } from "drizzle-orm";
 import { cache } from "hono/cache";
-import { decrypt } from "../utils/crypto";
+// import { decrypt } from "../utils/crypto";
 import type { Bindings } from "../../types";
 
 export const redirectRoute = new OpenAPIHono<{ Bindings: Bindings }>();
@@ -132,8 +132,8 @@ redirectRoute.get(
     }
 
     try {
-      const decryptedUrl = await decrypt(result.originalUrl, c.env.secretKey);
-      return c.redirect(decryptedUrl, 301);
+      // const decryptedUrl = await decrypt(result.originalUrl, c.env.secretKey);
+      return c.redirect(result.originalUrl, 301);
     } catch {
       return c.json({ error: "Failed to retrieve URL" }, 500);
     }
