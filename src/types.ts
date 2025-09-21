@@ -1,5 +1,6 @@
 export type Bindings = {
     DB: D1Database;
+    LINKS_KV: KVNamespace
     URL: string;
     secretKey: string;
     TURNSTILE_SECRET: string;

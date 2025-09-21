@@ -9,6 +9,10 @@ database_name = "EdgeLinkDB"
 database_id = "31553975-7285-4e74-9a6d-1b14f16fb113"
 migrations_dir = "drizzle/migrations"
 
+[[kv_namespaces]]
+binding = "EdgeLinkCache"
+id = "12cb04c81c0c4726aa25159e4fda3906"
+
 [observability]
 enabled = true
 

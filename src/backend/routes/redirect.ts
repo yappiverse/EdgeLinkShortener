@@ -12,8 +12,13 @@ redirectRoute.get(
   "/:shortUrl",
   cache({ cacheName: "short-url-cache", cacheControl: "public, max-age=3600" }),
   async (c) => {
-    const db = drizzle(c.env.DB);
     const shortUrl = c.req.param("shortUrl");
+
+    const cachedUrl = await c.env.LINKS_KV.get(shortUrl);
+    if (cachedUrl) {
+      return c.redirect(cachedUrl, 301); // blazing fast path
+    }
+    const db = drizzle(c.env.DB);
 
     const result = await db.select().from(urlsTable).where(eq(urlsTable.shortenedUrl, shortUrl)).get();
     if (!result) {
@@ -133,6 +138,9 @@ redirectRoute.get(
 
     try {
       // const decryptedUrl = await decrypt(result.originalUrl, c.env.secretKey);
+      await c.env.LINKS_KV.put(shortUrl, result.originalUrl, {
+        expirationTtl: 3600, // 1 hour TTL
+      });
       return c.redirect(result.originalUrl, 301);
     } catch {
       return c.json({ error: "Failed to retrieve URL" }, 500);
