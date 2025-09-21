@@ -14,9 +14,9 @@ redirectRoute.get(
   async (c) => {
     const shortUrl = c.req.param("shortUrl");
 
-    const cachedUrl = await c.env.LINKS_KV.get(shortUrl);
+    const cachedUrl = await c.env.EdgeLinkCache.get(shortUrl);
     if (cachedUrl) {
-      return c.redirect(cachedUrl, 301); // blazing fast path
+      return c.redirect(cachedUrl, 301);
     }
     const db = drizzle(c.env.DB);
 
@@ -138,7 +138,7 @@ redirectRoute.get(
 
     try {
       // const decryptedUrl = await decrypt(result.originalUrl, c.env.secretKey);
-      await c.env.LINKS_KV.put(shortUrl, result.originalUrl, {
+      await c.env.EdgeLinkCache.put(shortUrl, result.originalUrl, {
         expirationTtl: 3600, // 1 hour TTL
       });
       return c.redirect(result.originalUrl, 301);
