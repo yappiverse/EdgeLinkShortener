@@ -15,6 +15,13 @@
       "when": 1758454761584,
       "tag": "0001_puzzling_phantom_reporter",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1758455775013,
+      "tag": "0002_yellow_lyja",
+      "breakpoints": true
     }
   ]
 }
