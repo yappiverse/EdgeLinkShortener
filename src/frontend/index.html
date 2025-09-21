@@ -23,6 +23,7 @@
         type="text"
         id="qr-input"
         placeholder="Enter URL (e.g., https://shortener.web.id)"
+        disabled
       />
       <div class="error-message" id="error-message">
         Please enter a valid URL.
@@ -41,9 +42,13 @@
           <span id="original-url" class="url-text"></span>
         </p>
         <p>
-          <strong>Shortened URL:</strong>
-          <span id="short-url" class="url-text"></span>
-          <button class="copy-btn" onclick="copyToClipboard()">Copy</button>
+          <!-- <strong>Shortened URL:</strong> -->
+          <!-- <span id="short-url" class="url-text"></span> -->
+          <button
+            id="short-url"
+            class="copy-btn"
+            onclick="copyToClipboard()"
+          ></button>
         </p>
       </div>
 
@@ -79,6 +84,8 @@
       function onTurnstileSuccess(token) {
         turnstileToken = token;
         document.getElementById("captcha-error").style.display = "none";
+
+        document.getElementById("qr-input").disabled = false;
       }
 
       window.getTurnstileToken = () => turnstileToken;

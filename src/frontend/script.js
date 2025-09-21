@@ -30,15 +30,15 @@ async function generateShortUrl(input) {
   const res = await fetch("/api/generateShortenedUrl", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url: input, format, cfToken }),
+    body: JSON.stringify({ url: input, format }),
   });
-
+  console.log("res", res);
   const data = await res.json();
-
-  if (window.turnstile) {
-    const cfWidget = document.querySelector(".cf-challenge");
-    window.turnstile.reset(cfWidget);
-  }
+  console.log("data", data);
+  // if (window.turnstile) {
+  //   const cfWidget = document.querySelector(".cf-challenge");
+  //   window.turnstile.reset(cfWidget);
+  // }
 
   return data;
 }
@@ -86,6 +86,8 @@ async function updateQRCode() {
     originalUrlSpan.textContent = input;
     shortUrlSpan.textContent = currentQrData.fullUrl;
     urlInfo.classList.remove("hidden");
+
+    await saveUrlIfNeeded();
   } else {
     console.error("QR Code data missing from API response");
     errorMessage.style.display = "block";

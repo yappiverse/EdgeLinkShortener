@@ -10,22 +10,20 @@ export const generateRoute = new OpenAPIHono<{ Bindings: Bindings }>();
 
 generateRoute.post("/api/generateShortenedUrl", async (c) => {
     await initializeWasm();
-    const { url, size = 600, cfToken } = await c.req.json();
-    console.log(url)
-    console.log(cfToken)
-
+    const { url, size = 600 } = await c.req.json();
+    console.log("url", url)
     if (!url) return c.json({ error: "URL is required" }, 400);
-    if (!cfToken) return c.json({ error: "CAPTCHA token is required" }, 400);
+    // if (!cfToken) return c.json({ error: "CAPTCHA token is required" }, 400);
 
     // Verify Turnstile token with Cloudflare
-    const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `secret=${c.env.TURNSTILE_SECRET}&response=${cfToken}`,
-    });
+    // const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    //     method: "POST",
+    //     headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    //     body: `secret=${c.env.TURNSTILE_SECRET}&response=${cfToken}`,
+    // });
 
-    const verifyData: TurnstileVerifyResponse = await verifyRes.json();
-    if (!verifyData.success) return c.json({ error: "CAPTCHA verification failed" }, 403);
+    // const verifyData: TurnstileVerifyResponse = await verifyRes.json();
+    // if (!verifyData.success) return c.json({ error: "CAPTCHA verification failed" }, 403);
 
     // Generate short URL
     const uniqueId = generateShortUrl(url);
