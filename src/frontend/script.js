@@ -20,7 +20,7 @@ function isValidUrl(url) {
 async function generateShortUrl(input) {
   const format = document.getElementById("format").value;
   const cfToken = window.getTurnstileToken?.();
-  console.log("Turnstile token:", cfToken);
+  // console.log("Turnstile token:", cfToken);
 
   if (!cfToken) {
     document.getElementById("captcha-error").style.display = "block";
@@ -32,9 +32,9 @@ async function generateShortUrl(input) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url: input, format }),
   });
-  console.log("res", res);
+  // console.log("res", res);
   const data = await res.json();
-  console.log("data", data);
+  // console.log("data", data);
   // if (window.turnstile) {
   //   const cfWidget = document.querySelector(".cf-challenge");
   //   window.turnstile.reset(cfWidget);
