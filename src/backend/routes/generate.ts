@@ -11,10 +11,12 @@ export const generateRoute = new OpenAPIHono<{ Bindings: Bindings }>();
 generateRoute.post("/api/generateShortenedUrl", async (c) => {
     await initializeWasm();
     const { url, size = 600 } = await c.req.json();
-
     if (!url) return c.json({ error: "URL is required" }, 400);
 
     const uniqueId = generateShortUrl(url);
+
+    const cache = caches.default;
+
     const qrCode = new qr({
         content: `${c.env.URL}/${uniqueId}`,
         padding: 4,
@@ -32,26 +34,8 @@ generateRoute.post("/api/generateShortenedUrl", async (c) => {
         `<svg viewBox="0 0 ${size} ${size}" preserveAspectRatio="xMidYMid meet"`
     );
 
-    const optimized = optimize(svg, {
-        multipass: true,
-        plugins: [
-            "removeDoctype",
-            "removeComments",
-            "removeMetadata",
-            "cleanupAttrs",
-            "mergePaths",
-            "convertShapeToPath",
-            "removeUselessDefs",
-            "removeEmptyAttrs",
-            "removeEmptyContainers",
-            "cleanupIds",
-            "collapseGroups",
-            "convertTransform",
-        ],
-    });
-
+    const optimized = optimize(svg, { multipass: true });
     const qrSvgUri = `data:image/svg+xml;utf8,${encodeURIComponent(optimized.data)}`;
-
 
     let qrPngBase64;
     try {
@@ -61,15 +45,22 @@ generateRoute.post("/api/generateShortenedUrl", async (c) => {
         return c.json({ error: "Error generating PNG QR code" }, 500);
     }
 
-
-
-    c.executionCtx.waitUntil(
-        c.env.EdgeLinkCache.put(uniqueId, url, { expirationTtl: 3600 })
+    const response = new Response(
+        JSON.stringify({
+            shortenedUrl: uniqueId,
+            fullUrl: `${c.env.URL}/${uniqueId}`,
+            qrPng: qrPngBase64,
+            qrSvg: qrSvgUri
+        }),
+        {
+            headers: { "Content-Type": "application/json" }
+        }
     );
-    return c.json({
-        shortenedUrl: uniqueId,
-        fullUrl: `${c.env.URL}/${uniqueId}`,
-        qrPng: qrPngBase64,
-        qrSvg: qrSvgUri,
-    });
+
+    // Cache for 1 hour at the edge
+    c.executionCtx.waitUntil(
+        cache.put(uniqueId, response.clone())
+    );
+
+    return response;
 });
