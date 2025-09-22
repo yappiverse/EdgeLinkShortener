@@ -64,7 +64,7 @@ generateRoute.post("/api/generateShortenedUrl", async (c) => {
 
 
     c.executionCtx.waitUntil(
-        c.env.EdgeLinkCache.put(`${c.env.URL}/${uniqueId}`, url, { expirationTtl: 3600 })
+        c.env.EdgeLinkCache.put(uniqueId, url, { expirationTtl: 3600 })
     );
     return c.json({
         shortenedUrl: uniqueId,
