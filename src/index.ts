@@ -2,6 +2,7 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { generateRoute } from "./backend/routes/generate";
 import { saveRoute } from "./backend/routes/save";
 import { redirectRoute } from "./backend/routes/redirect";
+import { compress } from 'hono/compress'
 import type { Bindings } from "./types";
 
 const app = new OpenAPIHono<{ Bindings: Bindings }>();

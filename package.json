@@ -18,7 +18,8 @@
     "drizzle-orm": "^0.40.1",
     "hono": "^4.7.4",
     "qrcode-svg": "^1.1.0",
-    "svg2png-wasm": "^1.4.1"
+    "svg2png-wasm": "^1.4.1",
+    "svgo": "^4.0.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250317.0",

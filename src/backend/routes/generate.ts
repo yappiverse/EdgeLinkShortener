@@ -1,31 +1,19 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { drizzle } from "drizzle-orm/d1";
 import qr from "qrcode-svg";
 import { svg2png } from "svg2png-wasm";
 import { initializeWasm } from "../utils/wasm";
 import { generateShortUrl } from "../utils/url";
-import type { Bindings, TurnstileVerifyResponse } from "../../types";
+import type { Bindings } from "../../types";
+import { optimize } from "svgo";
 
 export const generateRoute = new OpenAPIHono<{ Bindings: Bindings }>();
 
 generateRoute.post("/api/generateShortenedUrl", async (c) => {
     await initializeWasm();
     const { url, size = 600 } = await c.req.json();
-    // console.log("url", url)
+
     if (!url) return c.json({ error: "URL is required" }, 400);
-    // if (!cfToken) return c.json({ error: "CAPTCHA token is required" }, 400);
 
-    // Verify Turnstile token with Cloudflare
-    // const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-    //     method: "POST",
-    //     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    //     body: `secret=${c.env.TURNSTILE_SECRET}&response=${cfToken}`,
-    // });
-
-    // const verifyData: TurnstileVerifyResponse = await verifyRes.json();
-    // if (!verifyData.success) return c.json({ error: "CAPTCHA verification failed" }, 403);
-
-    // Generate short URL
     const uniqueId = generateShortUrl(url);
     const qrCode = new qr({
         content: `${c.env.URL}/${uniqueId}`,
@@ -35,6 +23,7 @@ generateRoute.post("/api/generateShortenedUrl", async (c) => {
         color: "#000000",
         background: "#ffffff",
         ecl: "H",
+        join: true
     });
 
     let svg = qrCode.svg();
@@ -42,7 +31,27 @@ generateRoute.post("/api/generateShortenedUrl", async (c) => {
         `<svg`,
         `<svg viewBox="0 0 ${size} ${size}" preserveAspectRatio="xMidYMid meet"`
     );
-    const qrSvgBase64 = `data:image/svg+xml;base64,${btoa(svg)}`;
+
+    const optimized = optimize(svg, {
+        multipass: true,
+        plugins: [
+            "removeDoctype",
+            "removeComments",
+            "removeMetadata",
+            "cleanupAttrs",
+            "mergePaths",
+            "convertShapeToPath",
+            "removeUselessDefs",
+            "removeEmptyAttrs",
+            "removeEmptyContainers",
+            "cleanupIds",
+            "collapseGroups",
+            "convertTransform",
+        ],
+    });
+
+    const qrSvgUri = `data:image/svg+xml;utf8,${encodeURIComponent(optimized.data)}`;
+
 
     let qrPngBase64;
     try {
@@ -52,10 +61,15 @@ generateRoute.post("/api/generateShortenedUrl", async (c) => {
         return c.json({ error: "Error generating PNG QR code" }, 500);
     }
 
+
+
+    c.executionCtx.waitUntil(
+        c.env.EdgeLinkCache.put(`${c.env.URL}/${uniqueId}`, url, { expirationTtl: 3600 })
+    );
     return c.json({
         shortenedUrl: uniqueId,
         fullUrl: `${c.env.URL}/${uniqueId}`,
         qrPng: qrPngBase64,
-        qrSvg: qrSvgBase64,
+        qrSvg: qrSvgUri,
     });
 });

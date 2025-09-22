@@ -34,11 +34,6 @@ async function generateShortUrl(input) {
   });
   // console.log("res", res);
   const data = await res.json();
-  // console.log("data", data);
-  // if (window.turnstile) {
-  //   const cfWidget = document.querySelector(".cf-challenge");
-  //   window.turnstile.reset(cfWidget);
-  // }
 
   return data;
 }
