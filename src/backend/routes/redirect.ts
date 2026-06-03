@@ -2,31 +2,35 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { drizzle } from "drizzle-orm/d1";
 import { urlsTable } from "../../db/schema";
 import { eq } from "drizzle-orm";
-import { cache } from "hono/cache";
-// import { decrypt } from "../utils/crypto";
 import type { Bindings } from "../../types";
+
+const NOT_FOUND_SENTINEL = "__404__";
 
 export const redirectRoute = new OpenAPIHono<{ Bindings: Bindings }>();
 
 redirectRoute.get("/:shortUrl", async (c) => {
   const shortUrl = c.req.param("shortUrl");
-  const cache = caches.default;
+  const edgeCache = caches.default;
   const cacheKey = new Request(c.req.url);
 
-  const cachedResponse = await cache.match(cacheKey);
+  const cachedResponse = await edgeCache.match(cacheKey);
   if (cachedResponse) {
-    const newResponse = new Response(cachedResponse.body, {
+    return new Response(cachedResponse.body, {
       status: cachedResponse.status,
       headers: {
         ...Object.fromEntries(cachedResponse.headers),
         "X-Cache-Hit": "true",
       },
     });
-    return newResponse;
   }
 
-
   let originalUrl = await c.env.EdgeLinkCache.get(shortUrl);
+
+  if (originalUrl === NOT_FOUND_SENTINEL) {
+    const notFoundRes = await c.env.ASSETS.fetch(new Request(`${new URL(c.req.url).origin}/404.html`));
+    return new Response(notFoundRes.body, { status: 404, headers: { "Content-Type": "text/html;charset=UTF-8" } });
+  }
+
   if (!originalUrl) {
     const db = drizzle(c.env.DB);
     const result = await db
@@ -36,6 +40,9 @@ redirectRoute.get("/:shortUrl", async (c) => {
       .get();
 
     if (!result) {
+      c.executionCtx.waitUntil(
+        c.env.EdgeLinkCache.put(shortUrl, NOT_FOUND_SENTINEL, { expirationTtl: 60 })
+      );
       const notFoundRes = await c.env.ASSETS.fetch(new Request(`${new URL(c.req.url).origin}/404.html`));
       return new Response(notFoundRes.body, { status: 404, headers: { "Content-Type": "text/html;charset=UTF-8" } });
     }
@@ -47,19 +54,16 @@ redirectRoute.get("/:shortUrl", async (c) => {
     );
   }
 
-  const baseResponse = Response.redirect(originalUrl, 301);
-  const response = new Response(baseResponse.body, {
-    status: baseResponse.status,
+  const response = new Response(null, {
+    status: 301,
     headers: {
-      ...Object.fromEntries(baseResponse.headers),
+      "Location": originalUrl,
       "Cache-Control": "public, immutable, max-age=31536000",
       "X-Cache-Hit": "false",
     },
   });
-  response.headers.set("Cache-Control", "public, immutable, max-age=31536000"); // 1 year
-  response.headers.set("X-Cache-Hit", "false");
 
-  c.executionCtx.waitUntil(cache.put(cacheKey, response.clone()));
+  c.executionCtx.waitUntil(edgeCache.put(cacheKey, response.clone()));
 
   return response;
 });
