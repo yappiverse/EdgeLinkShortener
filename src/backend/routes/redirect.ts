@@ -24,7 +24,7 @@ redirectRoute.get("/:shortUrl", async (c) => {
     });
   }
 
-  let originalUrl = await c.env.EdgeLinkCache.get(shortUrl);
+  let originalUrl = await c.env.EdgeLinkCache.get(shortUrl, { cacheTtl: 120 });
 
   if (originalUrl === NOT_FOUND_SENTINEL) {
     const notFoundRes = await c.env.ASSETS.fetch(new Request(`${new URL(c.req.url).origin}/404.html`));
