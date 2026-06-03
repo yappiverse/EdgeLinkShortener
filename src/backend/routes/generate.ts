@@ -4,14 +4,31 @@ import { svg2png } from "svg2png-wasm";
 import { initializeWasm } from "../utils/wasm";
 import { generateShortUrl } from "../utils/url";
 import type { Bindings } from "../../types";
+import type { TurnstileVerifyResponse } from "../../types";
 import { optimize } from "svgo";
 
 export const generateRoute = new OpenAPIHono<{ Bindings: Bindings }>();
 
 generateRoute.post("/api/generateShortenedUrl", async (c) => {
     await initializeWasm();
-    const { url, size = 600 } = await c.req.json();
+    const { url, size = 600, cfToken } = await c.req.json();
     if (!url) return c.json({ error: "URL is required" }, 400);
+    if (!cfToken) return c.json({ error: "CAPTCHA token is required" }, 400);
+
+    const ip = c.req.header("CF-Connecting-IP") ?? "";
+    const verifyBody = new URLSearchParams({
+        secret: c.env.TURNSTILE_SECRET,
+        response: cfToken,
+        remoteip: ip,
+    });
+    const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+        method: "POST",
+        body: verifyBody,
+    });
+    const verification = await verifyRes.json() as TurnstileVerifyResponse;
+    if (!verification.success) {
+        return c.json({ error: "CAPTCHA verification failed" }, 403);
+    }
 
     const uniqueId = generateShortUrl(url);
 

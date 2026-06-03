@@ -19,3 +19,4 @@ enabled = true
 
 [assets]
 directory = "src/frontend"
+binding = "ASSETS"
