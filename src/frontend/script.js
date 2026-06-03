@@ -2,6 +2,19 @@ let currentQrData = null;
 let isUrlSaved = false;
 let debounceTime = 0;
 let hasGeneratedFirstQR = false;
+let turnstileToken = null;
+
+window.onTurnstileLoad = async function () {
+  const res = await fetch("/api/config");
+  const { sitekey } = await res.json();
+  turnstile.render("#cf-turnstile", {
+    sitekey,
+    appearance: "always",
+    callback: (token) => { turnstileToken = token; },
+    "error-callback": () => { turnstileToken = null; },
+    "expired-callback": () => { turnstileToken = null; },
+  });
+};
 
 function debounce(func, delay) {
   clearTimeout(debounce.timer);
@@ -17,12 +30,29 @@ function isValidUrl(url) {
   }
 }
 
+async function getTurnstileToken() {
+  if (turnstileToken) return turnstileToken;
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    const interval = setInterval(() => {
+      if (turnstileToken) {
+        clearInterval(interval);
+        resolve(turnstileToken);
+      } else if (++attempts > 100) {
+        clearInterval(interval);
+        reject(new Error("CAPTCHA timeout"));
+      }
+    }, 100);
+  });
+}
+
 async function generateShortUrl(input) {
   const format = document.getElementById("format").value;
-  const cfToken = window.getTurnstileToken?.();
-  // console.log("Turnstile token:", cfToken);
 
-  if (!cfToken) {
+  let cfToken;
+  try {
+    cfToken = await getTurnstileToken();
+  } catch {
     document.getElementById("captcha-error").style.display = "block";
     return { error: "Captcha required" };
   }
@@ -30,9 +60,12 @@ async function generateShortUrl(input) {
   const res = await fetch("/api/generateShortenedUrl", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url: input, format }),
+    body: JSON.stringify({ url: input, format, cfToken }),
   });
-  // console.log("res", res);
+
+  turnstileToken = null;
+  turnstile.reset("#cf-turnstile");
+
   const data = await res.json();
 
   return data;

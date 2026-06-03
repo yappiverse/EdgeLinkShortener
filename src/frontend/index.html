@@ -10,9 +10,8 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='90' font-size='90'%3E🔗%3C/text%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="style.css" />
-    <!-- Cloudflare Turnstile script -->
     <script
-      src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+      src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit"
       async
       defer
     ></script>
@@ -23,7 +22,6 @@
         type="text"
         id="qr-input"
         placeholder="Enter URL (e.g., https://shortener.web.id)"
-        disabled
       />
       <div class="error-message" id="error-message">
         Please enter a valid URL.
@@ -55,13 +53,8 @@
       <button id="download-btn" class="hidden" onclick="downloadQRCode()">
         Download & Save
       </button>
-      <!-- Cloudflare Turnstile CAPTCHA -->
       <div class="captcha-wrapper">
-        <div
-          class="cf-challenge"
-          data-sitekey="0x4AAAAAAB2OzTHq6apWD4Zu"
-          data-callback="onTurnstileSuccess"
-        ></div>
+        <div id="cf-turnstile"></div>
       </div>
       <div class="error-message" id="captcha-error">
         Please complete the CAPTCHA to continue.
@@ -74,17 +67,5 @@
     </div>
 
     <script src="script.js"></script>
-    <script>
-      let turnstileToken = null;
-
-      function onTurnstileSuccess(token) {
-        turnstileToken = token;
-        document.getElementById("captcha-error").style.display = "none";
-
-        document.getElementById("qr-input").disabled = false;
-      }
-
-      window.getTurnstileToken = () => turnstileToken;
-    </script>
   </body>
 </html>
