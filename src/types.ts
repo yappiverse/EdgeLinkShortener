@@ -1,9 +1,10 @@
 export type Bindings = {
     DB: D1Database;
-    EdgeLinkCache: KVNamespace
+    EdgeLinkCache: KVNamespace;
+    ASSETS: Fetcher;
     URL: string;
-    secretKey: string;
     TURNSTILE_SECRET: string;
+    TURNSTILE_SITEKEY: string;
 };
 
 export type TurnstileVerifyResponse = {
