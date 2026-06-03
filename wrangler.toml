@@ -1,4 +1,5 @@
 name = "urlshortener"
+main = "src/index.ts"
 compatibility_date = "2025-02-04"
 compatibility_flags = ["nodejs_compat"]
 routes = [{ pattern = "lmpt.in", custom_domain = true }]
