@@ -7,7 +7,9 @@ import type { Bindings } from "./types";
 
 const app = new OpenAPIHono<{ Bindings: Bindings }>();
 
-app.get("/", (c) => c.redirect("/index.html"));
+app.get("/api/config", (c) => {
+  return c.json({ sitekey: c.env.TURNSTILE_SITEKEY });
+});
 
 
 app.route("/", generateRoute);
