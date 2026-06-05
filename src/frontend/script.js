@@ -3,6 +3,7 @@ let isUrlSaved = false;
 let debounceTime = 0;
 let hasGeneratedFirstQR = false;
 let turnstileToken = null;
+let turnstileConsumed = false;
 
 window.onTurnstileLoad = async function () {
   const res = await fetch("/api/config");
@@ -10,7 +11,11 @@ window.onTurnstileLoad = async function () {
   turnstile.render("#cf-turnstile", {
     sitekey,
     appearance: "always",
-    callback: (token) => { turnstileToken = token; },
+    callback: (token) => {
+      turnstileToken = token;
+      turnstileConsumed = false;
+      document.getElementById("captcha-error").style.display = "none";
+    },
     "error-callback": () => { turnstileToken = null; },
     "expired-callback": () => { turnstileToken = null; },
   });
@@ -31,11 +36,11 @@ function isValidUrl(url) {
 }
 
 async function getTurnstileToken() {
-  if (turnstileToken) return turnstileToken;
+  if (turnstileToken && !turnstileConsumed) return turnstileToken;
   return new Promise((resolve, reject) => {
     let attempts = 0;
     const interval = setInterval(() => {
-      if (turnstileToken) {
+      if (turnstileToken && !turnstileConsumed) {
         clearInterval(interval);
         resolve(turnstileToken);
       } else if (++attempts > 100) {
@@ -63,10 +68,12 @@ async function generateShortUrl(input) {
     body: JSON.stringify({ url: input, format, cfToken }),
   });
 
-  turnstileToken = null;
-  turnstile.reset("#cf-turnstile");
-
   const data = await res.json();
+
+  // Mark token as consumed — will be refreshed for the next generate
+  turnstileConsumed = true;
+  // Refresh Turnstile widget for the save operation
+  turnstile.reset("#cf-turnstile");
 
   return data;
 }
@@ -114,8 +121,6 @@ async function updateQRCode() {
     originalUrlSpan.textContent = input;
     shortUrlSpan.textContent = currentQrData.fullUrl;
     urlInfo.classList.remove("hidden");
-
-    // await saveUrlIfNeeded();
   } else {
     console.error("QR Code data missing from API response");
     errorMessage.style.display = "block";
@@ -131,6 +136,10 @@ document.getElementById("format").addEventListener("change", () => {
 document.getElementById("qr-input").addEventListener("input", () => {
   currentQrData = null;
   isUrlSaved = false;
+  // Reset Turnstile for new URL generation
+  turnstileToken = null;
+  turnstileConsumed = false;
+  turnstile.reset("#cf-turnstile");
   debounce(() => {
     updateQRCode();
     if (!hasGeneratedFirstQR) {
@@ -143,17 +152,36 @@ document.getElementById("qr-input").addEventListener("input", () => {
 async function saveUrlIfNeeded() {
   if (!isUrlSaved && currentQrData) {
     const input = document.getElementById("qr-input").value;
+
+    // Get fresh Turnstile token for save
+    let cfToken;
+    try {
+      cfToken = await getTurnstileToken();
+    } catch {
+      showToast("⚠️ Please complete the CAPTCHA to save");
+      return;
+    }
+
     const saveResponse = await fetch("/api/saveURL", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         originalUrl: input,
         shortenedUrl: currentQrData.shortenedUrl,
+        cfToken,
       }),
     });
 
+    const result = await saveResponse.json();
+
     if (saveResponse.ok) {
       isUrlSaved = true;
+      turnstileConsumed = true;
+      showToast("✅ Link saved successfully!");
+    } else if (saveResponse.status === 429) {
+      showToast("⚠️ Too many requests. Please wait a moment.");
+    } else {
+      showToast("⚠️ Failed to save: " + (result.error || "Unknown error"));
     }
   }
 }

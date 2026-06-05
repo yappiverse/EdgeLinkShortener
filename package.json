@@ -7,9 +7,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "wrangler d1 migrations apply EdgeLinkDB --local",
     "db:migrate:prod": "ENVIRONMENT=production drizzle-kit migrate",
-    "db:seed": "tsx seed.ts",
-    "db:seed:prod": "ENVIRONMENT=production tsx seed.ts",
-    "db:setup": "npm run db:touch && npm run db:generate && npm run db:migrate && npm run db:seed",
+    "db:seed": "bun run seed.ts",
+    "db:seed:prod": "ENVIRONMENT=production bun run seed.ts",
+    "db:setup": "bun run db:touch && bun run db:generate && bun run db:migrate && bun run db:seed",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
@@ -28,7 +28,6 @@
     "@libsql/client": "^0.14.0",
     "drizzle-kit": "^0.30.5",
     "drizzle-seed": "^0.3.1",
-    "tsx": "^4.19.3",
     "wrangler": "^4.1.0"
   }
 }

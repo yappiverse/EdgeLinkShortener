@@ -7,13 +7,34 @@ import type { Bindings } from "../../types";
 import type { TurnstileVerifyResponse } from "../../types";
 import { optimize } from "svgo";
 
+const MAX_URL_LENGTH = 8096;
+
 export const generateRoute = new OpenAPIHono<{ Bindings: Bindings }>();
 
 generateRoute.post("/api/generateShortenedUrl", async (c) => {
     await initializeWasm();
-    const { url, size = 600, cfToken } = await c.req.json();
+    const { url, size: rawSize = 600, cfToken } = await c.req.json();
     if (!url) return c.json({ error: "URL is required" }, 400);
     if (!cfToken) return c.json({ error: "CAPTCHA token is required" }, 400);
+
+    // Enforce maximum URL length
+    if (url.length > MAX_URL_LENGTH) {
+        return c.json({ error: `URL exceeds maximum length of ${MAX_URL_LENGTH} characters` }, 400);
+    }
+
+    // Validate URL scheme — only allow http and https
+    let parsedUrl: URL;
+    try {
+        parsedUrl = new URL(url);
+    } catch {
+        return c.json({ error: "Invalid URL format" }, 400);
+    }
+    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+        return c.json({ error: "Only http and https URLs are allowed" }, 400);
+    }
+
+    // Clamp QR size to a safe range
+    const size = Math.min(Math.max(Number(rawSize) || 600, 100), 2000);
 
     const ip = c.req.header("CF-Connecting-IP") ?? "";
     const verifyBody = new URLSearchParams({
@@ -31,8 +52,6 @@ generateRoute.post("/api/generateShortenedUrl", async (c) => {
     }
 
     const uniqueId = generateShortUrl(url);
-
-    const cache = caches.default;
 
     const qrCode = new qr({
         content: `${c.env.URL}/${uniqueId}`,
@@ -74,9 +93,10 @@ generateRoute.post("/api/generateShortenedUrl", async (c) => {
         }
     );
 
-    // Cache for 1 hour at the edge
+    // Cache the QR API response in CDN cache with a prefixed key to avoid collision with redirect cache
+    const cacheKey = new Request(`${new URL(c.req.url).origin}/_qr_cache/${uniqueId}`);
     c.executionCtx.waitUntil(
-        cache.put(uniqueId, response.clone())
+        caches.default.put(cacheKey, response.clone())
     );
 
     return response;
