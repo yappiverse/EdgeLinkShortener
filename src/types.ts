@@ -5,6 +5,7 @@ export type Bindings = {
     URL: string;
     TURNSTILE_SECRET: string;
     TURNSTILE_SITEKEY: string;
+    ENCRYPTION_KEY?: string;
 };
 
 export type TurnstileVerifyResponse = {
