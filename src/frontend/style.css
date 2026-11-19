@@ -68,6 +68,8 @@ img {
     max-width: 15.625rem;
     height: auto;
     margin: 0 auto;
+    display: block !important;
+    opacity: 1 !important;
 }
 
 .hidden {
