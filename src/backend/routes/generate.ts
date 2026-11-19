@@ -66,7 +66,7 @@ generateRoute.post("/api/generateShortenedUrl", async (c) => {
         return c.json({ error: "CAPTCHA verification failed" }, 403);
     }
 
-    const uniqueId = generateShortUrl(url);
+    const uniqueId = generateShortUrl(8);
 
     const qrCode = new qr({
         content: `${c.env.URL}/${uniqueId}`,
