@@ -40,6 +40,13 @@ redirectRoute.get("/:shortUrl", async (c) => {
         });
     }
 
+    const edgeCache = caches.default;
+    const cacheKey = new Request(c.req.url);
+    const cachedResponse = await edgeCache.match(cacheKey);
+    if (cachedResponse) {
+        return cachedResponse;
+    }
+
     const now = Date.now();
     const l1Hit = l1MemoryCache.get(shortUrl);
     if (l1Hit && l1Hit.expires > now) {
@@ -53,14 +60,16 @@ redirectRoute.get("/:shortUrl", async (c) => {
                 }
             });
         }
-        return new Response(null, {
-            status: 302,
+        const resp = new Response(null, {
+            status: 301,
             headers: {
                 "Location": l1Hit.url,
-                "Cache-Control": "public, max-age=300, s-maxage=3600",
+                "Cache-Control": "public, max-age=3600, s-maxage=86400",
                 "X-Cache": "HIT-L1",
             },
         });
+        c.executionCtx.waitUntil(edgeCache.put(cacheKey, resp.clone()));
+        return resp;
     }
 
     let originalUrl = await c.env.EdgeLinkCache.get(shortUrl, { cacheTtl: 300 });
@@ -135,14 +144,17 @@ redirectRoute.get("/:shortUrl", async (c) => {
 
     l1MemoryCache.set(shortUrl, { url: safeLocation, expires: now + L1_TTL_MS });
 
-    return new Response(null, {
-        status: 302,
+    const response = new Response(null, {
+        status: 301,
         headers: {
             "Location": safeLocation,
-            "Cache-Control": "public, max-age=300, s-maxage=3600",
+            "Cache-Control": "public, max-age=3600, s-maxage=86400",
             "X-Content-Type-Options": "nosniff",
             "Referrer-Policy": "no-referrer",
             "X-Cache": "HIT-L2",
         },
     });
+
+    c.executionCtx.waitUntil(edgeCache.put(cacheKey, response.clone()));
+    return response;
 });

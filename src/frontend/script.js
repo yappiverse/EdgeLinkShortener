@@ -2,6 +2,7 @@ let currentQrData = null;
 let debounceTime = 300;
 let hasGeneratedFirstQR = false;
 let turnstileToken = null;
+let qrcodeInstance = null;
 
 async function initTurnstile() {
   if (typeof turnstile === "undefined") {
@@ -78,7 +79,6 @@ async function getTurnstileToken() {
 }
 
 async function generateShortUrl(input) {
-  const format = document.getElementById("format").value;
   let cfToken;
   try {
     cfToken = await getTurnstileToken();
@@ -90,7 +90,7 @@ async function generateShortUrl(input) {
   const res = await fetch("/api/generateShortenedUrl", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url: input, format, cfToken }),
+    body: JSON.stringify({ url: input, cfToken }),
   });
 
   const data = await res.json();
@@ -101,21 +101,34 @@ async function generateShortUrl(input) {
   return data;
 }
 
+function renderClientQRCode(text) {
+  const container = document.getElementById("qrcode-container");
+  container.innerHTML = "";
+  qrcodeInstance = new QRCode(container, {
+    text: text,
+    width: 256,
+    height: 256,
+    colorDark: "#000000",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.M,
+  });
+  container.style.display = "flex";
+}
+
 async function updateQRCode() {
   const input = document.getElementById("qr-input").value.trim();
-  const format = document.getElementById("format").value;
-  const img = document.getElementById("qr-code");
   const downloadBtn = document.getElementById("download-btn");
   const urlInfo = document.getElementById("url-info");
   const originalUrlSpan = document.getElementById("original-url");
   const shortUrlSpan = document.getElementById("short-url");
   const errorMessage = document.getElementById("error-message");
+  const qrContainer = document.getElementById("qrcode-container");
 
   errorMessage.style.display = "none";
 
   if (!input) {
-    img.style.display = "none";
-    img.classList.remove("fade-in");
+    qrContainer.style.display = "none";
+    qrContainer.innerHTML = "";
     downloadBtn.classList.add("hidden");
     urlInfo.classList.add("hidden");
     return;
@@ -123,8 +136,8 @@ async function updateQRCode() {
 
   if (!isValidHttpUrl(input)) {
     errorMessage.style.display = "block";
-    img.style.display = "none";
-    img.classList.remove("fade-in");
+    qrContainer.style.display = "none";
+    qrContainer.innerHTML = "";
     downloadBtn.classList.add("hidden");
     urlInfo.classList.add("hidden");
     return;
@@ -132,12 +145,8 @@ async function updateQRCode() {
 
   currentQrData = await generateShortUrl(input);
 
-  if (currentQrData && currentQrData.qrSvg) {
-    if (currentQrData.qrPng) img.dataset.png = currentQrData.qrPng;
-    img.dataset.svg = currentQrData.qrSvg;
-    img.src = format === "svg" || !currentQrData.qrPng ? currentQrData.qrSvg : currentQrData.qrPng;
-    img.style.display = "block";
-    img.classList.add("fade-in");
+  if (currentQrData && currentQrData.fullUrl) {
+    renderClientQRCode(currentQrData.fullUrl);
     downloadBtn.classList.remove("hidden");
 
     originalUrlSpan.textContent = input;
@@ -147,14 +156,6 @@ async function updateQRCode() {
     errorMessage.style.display = "block";
   }
 }
-
-document.getElementById("format").addEventListener("change", () => {
-  const img = document.getElementById("qr-code");
-  const format = document.getElementById("format").value;
-  if (img.dataset.svg || img.dataset.png) {
-    img.src = format === "svg" || !img.dataset.png ? img.dataset.svg : img.dataset.png;
-  }
-});
 
 document.getElementById("qr-input").addEventListener("input", () => {
   currentQrData = null;
@@ -197,30 +198,30 @@ function showToast(message) {
   }, 2000);
 }
 
-async function downloadQRCode() {
-  if (!currentQrData) return;
+function downloadQRCode() {
+  if (!currentQrData || !currentQrData.shortenedUrl) return;
 
   const format = document.getElementById("format").value;
   const shortUrl = currentQrData.shortenedUrl.replace(/\W+/g, "");
   const fileName = `qrcode_${shortUrl}.${format}`;
-  const downloadLink = document.createElement("a");
+  const qrContainer = document.getElementById("qrcode-container");
 
-  if (format === "svg") {
-    const base64Part = currentQrData.qrSvg.split(",")[1];
-    const svgData = decodeURIComponent(base64Part);
-    const blob = new Blob([svgData], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
-    downloadLink.href = url;
-    downloadLink.download = fileName;
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
-    URL.revokeObjectURL(url);
-  } else if (currentQrData.qrPng) {
-    downloadLink.href = currentQrData.qrPng;
-    downloadLink.download = fileName;
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
+  const canvas = qrContainer.querySelector("canvas");
+  const img = qrContainer.querySelector("img");
+
+  let dataUrl = "";
+  if (canvas) {
+    dataUrl = canvas.toDataURL("image/png");
+  } else if (img && img.src) {
+    dataUrl = img.src;
   }
+
+  if (!dataUrl) return;
+
+  const downloadLink = document.createElement("a");
+  downloadLink.href = dataUrl;
+  downloadLink.download = fileName;
+  document.body.appendChild(downloadLink);
+  downloadLink.click();
+  document.body.removeChild(downloadLink);
 }

@@ -32,7 +32,7 @@
         <option value="svg">SVG</option>
       </select>
 
-      <img id="qr-code" alt="QR Code" />
+      <div id="qrcode-container" class="qr-box"></div>
 
       <div id="url-info" class="hidden">
         <p>
@@ -40,8 +40,6 @@
           <span id="original-url" class="url-text"></span>
         </p>
         <p>
-          <!-- <strong>Shortened URL:</strong> -->
-          <!-- <span id="short-url" class="url-text"></span> -->
           <button
             id="short-url"
             class="copy-btn"
@@ -66,6 +64,7 @@
       </p>
     </div>
 
+    <script src="qrcode.min.js"></script>
     <script src="script.js"></script>
   </body>
 </html>

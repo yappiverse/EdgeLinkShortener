@@ -57,6 +57,19 @@ img {
     transition: opacity 0.5s ease-in-out;
 }
 
+.qr-box {
+    margin-top: 1.25rem;
+    display: none;
+    justify-content: center;
+    align-items: center;
+}
+
+.qr-box canvas, .qr-box img {
+    max-width: 15.625rem;
+    height: auto;
+    margin: 0 auto;
+}
+
 .hidden {
     display: none;
 }

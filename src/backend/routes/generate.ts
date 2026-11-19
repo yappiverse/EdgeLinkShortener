@@ -1,7 +1,4 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
-import qr from "qrcode-svg";
-import { svg2png } from "svg2png-wasm";
-import { initializeWasm } from "../utils/wasm";
 import { generateShortUrl, isSafeTargetUrl } from "../utils/url";
 import { encryptUrl } from "../utils/crypto";
 import type { Bindings } from "../../types";
@@ -26,14 +23,14 @@ generateRoute.post("/api/generateShortenedUrl", async (c) => {
         c.env.EdgeLinkCache.put(rateLimitKey, String(currentCount + 1), { expirationTtl: GENERATE_WINDOW_SECONDS * 2 })
     );
 
-    let body: { url?: unknown; size?: unknown; format?: unknown; cfToken?: unknown };
+    let body: { url?: unknown; cfToken?: unknown };
     try {
         body = await c.req.json();
     } catch {
         return c.json({ error: "Invalid JSON body" }, 400);
     }
 
-    const { url, size: rawSize = 600, format = "png", cfToken } = body;
+    const { url, cfToken } = body;
     if (typeof url !== "string" || !url.trim()) return c.json({ error: "URL is required" }, 400);
     if (typeof cfToken !== "string" || !cfToken.trim()) return c.json({ error: "CAPTCHA token is required" }, 400);
 
@@ -49,8 +46,6 @@ generateRoute.post("/api/generateShortenedUrl", async (c) => {
     if (!isSafeTargetUrl(url, allowedHost)) {
         return c.json({ error: "Invalid or prohibited URL destination" }, 400);
     }
-
-    const size = Math.min(Math.max(Number(rawSize) || 600, 100), 2000);
 
     const verifyBody = new URLSearchParams({
         secret: c.env.TURNSTILE_SECRET,
@@ -95,36 +90,9 @@ generateRoute.post("/api/generateShortenedUrl", async (c) => {
 
     const fullUrl = `${c.env.URL}/${uniqueId}`;
 
-    const qrCode = new qr({
-        content: fullUrl,
-        padding: 4,
-        width: size,
-        height: size,
-        color: "#000000",
-        background: "#ffffff",
-        ecl: "M",
-        join: true
-    });
-
-    const svg = qrCode.svg();
-    const qrSvgUri = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-
-    let qrPngBase64: string | undefined;
-    if (format !== "svg") {
-        try {
-            await initializeWasm();
-            const pngBuffer = await svg2png(svg, { width: size, height: size });
-            qrPngBase64 = `data:image/png;base64,${Buffer.from(pngBuffer).toString("base64")}`;
-        } catch {
-            return c.json({ error: "Error generating PNG QR code" }, 500);
-        }
-    }
-
     return c.json({
         shortenedUrl: uniqueId,
         fullUrl,
-        qrPng: qrPngBase64 ?? null,
-        qrSvg: qrSvgUri,
         saved: true
     }, 200, {
         "Cache-Control": "private, no-store",

@@ -4,6 +4,9 @@ compatibility_date = "2025-02-04"
 compatibility_flags = ["nodejs_compat"]
 routes = [{ pattern = "lmpt.in", custom_domain = true }]
 
+[placement]
+mode = "smart"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "EdgeLinkDB"
