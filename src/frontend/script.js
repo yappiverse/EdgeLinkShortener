@@ -1,24 +1,31 @@
 let currentQrData = null;
 let isUrlSaved = false;
-let debounceTime = 0;
-let hasGeneratedFirstQR = false;
+let debounceTime = 300;
 let turnstileToken = null;
 let turnstileConsumed = false;
 
 window.onTurnstileLoad = async function () {
-  const res = await fetch("/api/config");
-  const { sitekey } = await res.json();
-  turnstile.render("#cf-turnstile", {
-    sitekey,
-    appearance: "always",
-    callback: (token) => {
-      turnstileToken = token;
-      turnstileConsumed = false;
-      document.getElementById("captcha-error").style.display = "none";
-    },
-    "error-callback": () => { turnstileToken = null; },
-    "expired-callback": () => { turnstileToken = null; },
-  });
+  try {
+    const res = await fetch("/api/config");
+    const { sitekey } = await res.json();
+    turnstile.render("#cf-turnstile", {
+      sitekey,
+      appearance: "always",
+      callback: (token) => {
+        turnstileToken = token;
+        turnstileConsumed = false;
+        document.getElementById("captcha-error").style.display = "none";
+      },
+      "error-callback": () => {
+        turnstileToken = null;
+      },
+      "expired-callback": () => {
+        turnstileToken = null;
+      },
+    });
+  } catch (err) {
+    console.error("Failed to load Turnstile config:", err);
+  }
 };
 
 function debounce(func, delay) {
@@ -26,10 +33,10 @@ function debounce(func, delay) {
   debounce.timer = setTimeout(func, delay);
 }
 
-function isValidUrl(url) {
+function isValidHttpUrl(url) {
   try {
-    new URL(url);
-    return true;
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
   } catch {
     return false;
   }
@@ -53,7 +60,6 @@ async function getTurnstileToken() {
 
 async function generateShortUrl(input) {
   const format = document.getElementById("format").value;
-
   let cfToken;
   try {
     cfToken = await getTurnstileToken();
@@ -69,17 +75,13 @@ async function generateShortUrl(input) {
   });
 
   const data = await res.json();
-
-  // Mark token as consumed — will be refreshed for the next generate
   turnstileConsumed = true;
-  // Refresh Turnstile widget for the save operation
   turnstile.reset("#cf-turnstile");
-
   return data;
 }
 
 async function updateQRCode() {
-  const input = document.getElementById("qr-input").value;
+  const input = document.getElementById("qr-input").value.trim();
   const format = document.getElementById("format").value;
   const img = document.getElementById("qr-code");
   const downloadBtn = document.getElementById("download-btn");
@@ -90,7 +92,7 @@ async function updateQRCode() {
 
   errorMessage.style.display = "none";
 
-  if (!input.trim()) {
+  if (!input) {
     img.style.display = "none";
     img.classList.remove("fade-in");
     downloadBtn.classList.add("hidden");
@@ -98,7 +100,7 @@ async function updateQRCode() {
     return;
   }
 
-  if (!isValidUrl(input)) {
+  if (!isValidHttpUrl(input)) {
     errorMessage.style.display = "block";
     img.style.display = "none";
     img.classList.remove("fade-in");
@@ -110,10 +112,10 @@ async function updateQRCode() {
   currentQrData = await generateShortUrl(input);
   isUrlSaved = false;
 
-  if (currentQrData.qrPng && currentQrData.qrSvg) {
-    img.dataset.png = currentQrData.qrPng;
+  if (currentQrData && currentQrData.qrSvg) {
+    if (currentQrData.qrPng) img.dataset.png = currentQrData.qrPng;
     img.dataset.svg = currentQrData.qrSvg;
-    img.src = format === "svg" ? currentQrData.qrSvg : currentQrData.qrPng;
+    img.src = format === "svg" || !currentQrData.qrPng ? currentQrData.qrSvg : currentQrData.qrPng;
     img.style.display = "block";
     img.classList.add("fade-in");
     downloadBtn.classList.remove("hidden");
@@ -122,7 +124,6 @@ async function updateQRCode() {
     shortUrlSpan.textContent = currentQrData.fullUrl;
     urlInfo.classList.remove("hidden");
   } else {
-    console.error("QR Code data missing from API response");
     errorMessage.style.display = "block";
   }
 }
@@ -130,30 +131,27 @@ async function updateQRCode() {
 document.getElementById("format").addEventListener("change", () => {
   const img = document.getElementById("qr-code");
   const format = document.getElementById("format").value;
-  img.src = format === "svg" ? img.dataset.svg : img.dataset.png;
+  if (img.dataset.svg || img.dataset.png) {
+    img.src = format === "svg" || !img.dataset.png ? img.dataset.svg : img.dataset.png;
+  }
 });
 
 document.getElementById("qr-input").addEventListener("input", () => {
   currentQrData = null;
   isUrlSaved = false;
-  // Reset Turnstile for new URL generation
   turnstileToken = null;
   turnstileConsumed = false;
-  turnstile.reset("#cf-turnstile");
+  if (window.turnstile) turnstile.reset("#cf-turnstile");
+
   debounce(() => {
     updateQRCode();
-    if (!hasGeneratedFirstQR) {
-      hasGeneratedFirstQR = true;
-      debounceTime = 150;
-    }
   }, debounceTime);
 });
 
 async function saveUrlIfNeeded() {
-  if (!isUrlSaved && currentQrData) {
-    const input = document.getElementById("qr-input").value;
+  if (!isUrlSaved && currentQrData && currentQrData.shortenedUrl) {
+    const input = document.getElementById("qr-input").value.trim();
 
-    // Get fresh Turnstile token for save
     let cfToken;
     try {
       cfToken = await getTurnstileToken();
@@ -177,6 +175,11 @@ async function saveUrlIfNeeded() {
     if (saveResponse.ok) {
       isUrlSaved = true;
       turnstileConsumed = true;
+      if (result.shortenedUrl && result.shortenedUrl !== currentQrData.shortenedUrl) {
+        currentQrData.shortenedUrl = result.shortenedUrl;
+        currentQrData.fullUrl = result.fullUrl;
+        document.getElementById("short-url").textContent = result.fullUrl;
+      }
       showToast("✅ Link saved successfully!");
     } else if (saveResponse.status === 429) {
       showToast("⚠️ Too many requests. Please wait a moment.");
@@ -222,7 +225,8 @@ async function downloadQRCode() {
   const downloadLink = document.createElement("a");
 
   if (format === "svg") {
-    const svgData = atob(currentQrData.qrSvg.split(",")[1]);
+    const base64Part = currentQrData.qrSvg.split(",")[1];
+    const svgData = decodeURIComponent(base64Part);
     const blob = new Blob([svgData], { type: "image/svg+xml" });
     const url = URL.createObjectURL(blob);
     downloadLink.href = url;
@@ -231,7 +235,7 @@ async function downloadQRCode() {
     downloadLink.click();
     document.body.removeChild(downloadLink);
     URL.revokeObjectURL(url);
-  } else {
+  } else if (currentQrData.qrPng) {
     downloadLink.href = currentQrData.qrPng;
     downloadLink.download = fileName;
     document.body.appendChild(downloadLink);
