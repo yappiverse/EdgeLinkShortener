@@ -124,6 +124,21 @@ function renderClientQRCode(text) {
   container.style.display = "flex";
 }
 
+function generateSvgFromModel(qrModel) {
+  if (!qrModel) return null;
+  const count = qrModel.getModuleCount();
+  const size = 256;
+  let rects = "";
+  for (let row = 0; row < count; row++) {
+    for (let col = 0; col < count; col++) {
+      if (qrModel.isDark(row, col)) {
+        rects += `<rect x="${col}" y="${row}" width="1" height="1" fill="#000000"/>`;
+      }
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${count} ${count}" width="${size}" height="${size}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#ffffff"/>${rects}</svg>`;
+}
+
 async function updateQRCode() {
   const input = document.getElementById("qr-input").value.trim();
   const downloadBtn = document.getElementById("download-btn");
@@ -214,6 +229,23 @@ function downloadQRCode() {
   const shortUrl = currentQrData.shortenedUrl.replace(/\W+/g, "");
   const fileName = `qrcode_${shortUrl}.${format}`;
   const qrContainer = document.getElementById("qrcode-container");
+
+  if (format === "svg") {
+    const qrModel = qrcodeInstance && qrcodeInstance._oQRCode ? qrcodeInstance._oQRCode : null;
+    const svgString = generateSvgFromModel(qrModel);
+    if (!svgString) return;
+
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const downloadLink = document.createElement("a");
+    downloadLink.href = url;
+    downloadLink.download = fileName;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    URL.revokeObjectURL(url);
+    return;
+  }
 
   const canvas = qrContainer.querySelector("canvas");
   const img = qrContainer.querySelector("img");
