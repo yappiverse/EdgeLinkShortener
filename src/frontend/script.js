@@ -103,14 +103,23 @@ async function generateShortUrl(input) {
 
 function renderClientQRCode(text) {
   const container = document.getElementById("qrcode-container");
+  if (!container) return;
   container.innerHTML = "";
-  qrcodeInstance = new QRCode(container, {
+  if (typeof QRCode === "undefined" && typeof window.QRCode !== "undefined") {
+    window.QRCode = window.QRCode;
+  }
+  const QR = typeof QRCode !== "undefined" ? QRCode : window.QRCode;
+  if (!QR) {
+    console.error("QRCode library not loaded yet");
+    return;
+  }
+  qrcodeInstance = new QR(container, {
     text: text,
     width: 256,
     height: 256,
     colorDark: "#000000",
     colorLight: "#ffffff",
-    correctLevel: QRCode.CorrectLevel.M,
+    correctLevel: QR.CorrectLevel ? QR.CorrectLevel.M : 0,
   });
   container.style.display = "flex";
 }
