@@ -3,12 +3,12 @@
   "scripts": {
     "dev": "wrangler dev src/index.ts",
     "deploy": "wrangler deploy --minify src/index.ts",
+    "test": "bun test",
     "db:touch": "wrangler d1 execute EdgeLinkDB --local --command='SELECT 1'",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "wrangler d1 migrations apply EdgeLinkDB --local",
-    "db:migrate:prod": "ENVIRONMENT=production drizzle-kit migrate",
+    "db:migrate:prod": "wrangler d1 migrations apply EdgeLinkDB --remote",
     "db:seed": "bun run seed.ts",
-    "db:seed:prod": "ENVIRONMENT=production bun run seed.ts",
     "db:setup": "bun run db:touch && bun run db:generate && bun run db:migrate && bun run db:seed",
     "db:studio": "drizzle-kit studio"
   },
