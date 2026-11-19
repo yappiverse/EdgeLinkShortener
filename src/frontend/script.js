@@ -1,13 +1,25 @@
 let currentQrData = null;
 let isUrlSaved = false;
 let debounceTime = 300;
+let hasGeneratedFirstQR = false;
 let turnstileToken = null;
 let turnstileConsumed = false;
 
-window.onTurnstileLoad = async function () {
+async function initTurnstile() {
+  if (typeof turnstile === "undefined") {
+    setTimeout(initTurnstile, 100);
+    return;
+  }
   try {
     const res = await fetch("/api/config");
     const { sitekey } = await res.json();
+    if (!sitekey) {
+      console.error("Turnstile sitekey missing");
+      return;
+    }
+    const container = document.getElementById("cf-turnstile");
+    if (!container) return;
+    container.innerHTML = "";
     turnstile.render("#cf-turnstile", {
       sitekey,
       appearance: "always",
@@ -24,9 +36,21 @@ window.onTurnstileLoad = async function () {
       },
     });
   } catch (err) {
-    console.error("Failed to load Turnstile config:", err);
+    console.error("Failed to initialize Turnstile:", err);
   }
+}
+
+window.onTurnstileLoad = function () {
+  initTurnstile();
 };
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    if (typeof turnstile !== "undefined") initTurnstile();
+  });
+} else {
+  if (typeof turnstile !== "undefined") initTurnstile();
+}
 
 function debounce(func, delay) {
   clearTimeout(debounce.timer);
@@ -76,7 +100,9 @@ async function generateShortUrl(input) {
 
   const data = await res.json();
   turnstileConsumed = true;
-  turnstile.reset("#cf-turnstile");
+  if (typeof turnstile !== "undefined") {
+    turnstile.reset("#cf-turnstile");
+  }
   return data;
 }
 
@@ -141,10 +167,16 @@ document.getElementById("qr-input").addEventListener("input", () => {
   isUrlSaved = false;
   turnstileToken = null;
   turnstileConsumed = false;
-  if (window.turnstile) turnstile.reset("#cf-turnstile");
+  if (typeof turnstile !== "undefined") {
+    turnstile.reset("#cf-turnstile");
+  }
 
   debounce(() => {
     updateQRCode();
+    if (!hasGeneratedFirstQR) {
+      hasGeneratedFirstQR = true;
+      debounceTime = 150;
+    }
   }, debounceTime);
 });
 
