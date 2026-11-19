@@ -2,7 +2,6 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { generateRoute } from "./backend/routes/generate";
 import { saveRoute } from "./backend/routes/save";
 import { redirectRoute } from "./backend/routes/redirect";
-import { compress } from "hono/compress";
 import { secureHeaders } from "hono/secure-headers";
 import { bodyLimit } from "hono/body-limit";
 import type { Bindings } from "./types";
@@ -35,8 +34,6 @@ app.use("*", async (c, next) => {
     c.res.headers.set("X-XSS-Protection", "0");
 });
 
-app.use(compress());
-
 app.use("/api/*", bodyLimit({
     maxSize: 8 * 1024,
     onError: (c) => c.json({ error: "Request body too large" }, 413),
@@ -47,7 +44,7 @@ app.get("/api/config", (c) => {
         { sitekey: c.env.TURNSTILE_SITEKEY },
         200,
         {
-            "Cache-Control": "public, max-age=3600",
+            "Cache-Control": "no-store",
         }
     );
 });
