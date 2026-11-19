@@ -7,9 +7,10 @@ import { isEncrypted, decryptUrl } from "../utils/crypto";
 import { isSafeTargetUrl } from "../utils/url";
 
 const NOT_FOUND_SENTINEL = "__404__";
-const REDIRECT_RATE_LIMIT = 60;
-const REDIRECT_WINDOW_SECONDS = 60;
 const MAX_URL_LENGTH = 8096;
+
+const l1MemoryCache = new Map<string, { url: string; expires: number }>();
+const L1_TTL_MS = 60 * 1000;
 
 let notFoundHtmlPromise: Promise<string> | null = null;
 
@@ -39,21 +40,33 @@ redirectRoute.get("/:shortUrl", async (c) => {
         });
     }
 
-    const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
-    const windowKey = Math.floor(Date.now() / (REDIRECT_WINDOW_SECONDS * 1000));
-    const rateLimitKey = `ratelimit:redirect:${ip}:${windowKey}`;
-
-    const currentCount = parseInt(await c.env.EdgeLinkCache.get(rateLimitKey) ?? "0", 10);
-    if (currentCount >= REDIRECT_RATE_LIMIT) {
-        return c.text("Too Many Requests", 429);
+    const now = Date.now();
+    const l1Hit = l1MemoryCache.get(shortUrl);
+    if (l1Hit && l1Hit.expires > now) {
+        if (l1Hit.url === NOT_FOUND_SENTINEL) {
+            const body = await getNotFoundHtml(c.env.ASSETS, origin);
+            return new Response(body, {
+                status: 404,
+                headers: {
+                    "Content-Type": "text/html;charset=UTF-8",
+                    "Cache-Control": "public, max-age=60",
+                }
+            });
+        }
+        return new Response(null, {
+            status: 302,
+            headers: {
+                "Location": l1Hit.url,
+                "Cache-Control": "public, max-age=300, s-maxage=3600",
+                "X-Cache": "HIT-L1",
+            },
+        });
     }
-    c.executionCtx.waitUntil(
-        c.env.EdgeLinkCache.put(rateLimitKey, String(currentCount + 1), { expirationTtl: REDIRECT_WINDOW_SECONDS * 2 })
-    );
 
     let originalUrl = await c.env.EdgeLinkCache.get(shortUrl, { cacheTtl: 300 });
 
     if (originalUrl === NOT_FOUND_SENTINEL) {
+        l1MemoryCache.set(shortUrl, { url: NOT_FOUND_SENTINEL, expires: now + 30 * 1000 });
         const body = await getNotFoundHtml(c.env.ASSETS, origin);
         return new Response(body, {
             status: 404,
@@ -73,6 +86,7 @@ redirectRoute.get("/:shortUrl", async (c) => {
             .get();
 
         if (!result) {
+            l1MemoryCache.set(shortUrl, { url: NOT_FOUND_SENTINEL, expires: now + 30 * 1000 });
             c.executionCtx.waitUntil(
                 c.env.EdgeLinkCache.put(shortUrl, NOT_FOUND_SENTINEL, { expirationTtl: 60 })
             );
@@ -103,6 +117,7 @@ redirectRoute.get("/:shortUrl", async (c) => {
     } catch {}
 
     if (!isSafeTargetUrl(originalUrl, allowedHost)) {
+        l1MemoryCache.set(shortUrl, { url: NOT_FOUND_SENTINEL, expires: now + 30 * 1000 });
         c.executionCtx.waitUntil(
             c.env.EdgeLinkCache.put(shortUrl, NOT_FOUND_SENTINEL, { expirationTtl: 3600 })
         );
@@ -118,13 +133,16 @@ redirectRoute.get("/:shortUrl", async (c) => {
 
     const safeLocation = originalUrl.length > MAX_URL_LENGTH ? originalUrl.substring(0, MAX_URL_LENGTH) : originalUrl;
 
+    l1MemoryCache.set(shortUrl, { url: safeLocation, expires: now + L1_TTL_MS });
+
     return new Response(null, {
         status: 302,
         headers: {
             "Location": safeLocation,
-            "Cache-Control": "private, no-cache, no-store, must-revalidate",
+            "Cache-Control": "public, max-age=300, s-maxage=3600",
             "X-Content-Type-Options": "nosniff",
             "Referrer-Policy": "no-referrer",
+            "X-Cache": "HIT-L2",
         },
     });
 });

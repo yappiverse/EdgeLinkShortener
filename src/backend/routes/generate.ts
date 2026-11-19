@@ -3,12 +3,12 @@ import qr from "qrcode-svg";
 import { svg2png } from "svg2png-wasm";
 import { initializeWasm } from "../utils/wasm";
 import { generateShortUrl, isSafeTargetUrl } from "../utils/url";
+import { encryptUrl } from "../utils/crypto";
 import type { Bindings } from "../../types";
 import type { TurnstileVerifyResponse } from "../../types";
-import { optimize } from "svgo";
 
 const MAX_URL_LENGTH = 8096;
-const GENERATE_RATE_LIMIT = 10;
+const GENERATE_RATE_LIMIT = 20;
 const GENERATE_WINDOW_SECONDS = 60;
 
 export const generateRoute = new OpenAPIHono<{ Bindings: Bindings }>();
@@ -16,7 +16,7 @@ export const generateRoute = new OpenAPIHono<{ Bindings: Bindings }>();
 generateRoute.post("/api/generateShortenedUrl", async (c) => {
     const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
     const windowKey = Math.floor(Date.now() / (GENERATE_WINDOW_SECONDS * 1000));
-    const rateLimitKey = `ratelimit:generate:${ip}:${windowKey}`;
+    const rateLimitKey = `ratelimit:gen:${ip}:${windowKey}`;
 
     const currentCount = parseInt(await c.env.EdgeLinkCache.get(rateLimitKey) ?? "0", 10);
     if (currentCount >= GENERATE_RATE_LIMIT) {
@@ -66,27 +66,48 @@ generateRoute.post("/api/generateShortenedUrl", async (c) => {
         return c.json({ error: "CAPTCHA verification failed" }, 403);
     }
 
-    const uniqueId = generateShortUrl(8);
+    const storedUrl = c.env.ENCRYPTION_KEY
+        ? await encryptUrl(url, c.env.ENCRYPTION_KEY)
+        : url;
+
+    let uniqueId = "";
+    let saved = false;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+        uniqueId = generateShortUrl(8);
+        const { meta } = await c.env.DB.prepare(
+            "INSERT OR IGNORE INTO urls (shortened_url, original_url) VALUES (?1, ?2)"
+        ).bind(uniqueId, storedUrl).run();
+
+        if (meta.changes > 0) {
+            saved = true;
+            break;
+        }
+    }
+
+    if (!saved) {
+        return c.json({ error: "Failed to generate unique link. Please try again." }, 500);
+    }
+
+    c.executionCtx.waitUntil(
+        c.env.EdgeLinkCache.put(uniqueId, url, { expirationTtl: 86400 })
+    );
+
+    const fullUrl = `${c.env.URL}/${uniqueId}`;
 
     const qrCode = new qr({
-        content: `${c.env.URL}/${uniqueId}`,
+        content: fullUrl,
         padding: 4,
         width: size,
         height: size,
         color: "#000000",
         background: "#ffffff",
-        ecl: "H",
+        ecl: "M",
         join: true
     });
 
-    let svg = qrCode.svg();
-    svg = svg.replace(
-        `<svg`,
-        `<svg viewBox="0 0 ${size} ${size}" preserveAspectRatio="xMidYMid meet"`
-    );
-
-    const optimized = optimize(svg, { multipass: true });
-    const qrSvgUri = `data:image/svg+xml;utf8,${encodeURIComponent(optimized.data)}`;
+    const svg = qrCode.svg();
+    const qrSvgUri = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 
     let qrPngBase64: string | undefined;
     if (format !== "svg") {
@@ -99,20 +120,13 @@ generateRoute.post("/api/generateShortenedUrl", async (c) => {
         }
     }
 
-    const response = new Response(
-        JSON.stringify({
-            shortenedUrl: uniqueId,
-            fullUrl: `${c.env.URL}/${uniqueId}`,
-            qrPng: qrPngBase64 ?? null,
-            qrSvg: qrSvgUri
-        }),
-        {
-            headers: {
-                "Content-Type": "application/json",
-                "Cache-Control": "private, no-store",
-            }
-        }
-    );
-
-    return response;
+    return c.json({
+        shortenedUrl: uniqueId,
+        fullUrl,
+        qrPng: qrPngBase64 ?? null,
+        qrSvg: qrSvgUri,
+        saved: true
+    }, 200, {
+        "Cache-Control": "private, no-store",
+    });
 });

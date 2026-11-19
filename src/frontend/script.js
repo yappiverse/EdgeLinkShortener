@@ -1,9 +1,7 @@
 let currentQrData = null;
-let isUrlSaved = false;
 let debounceTime = 300;
 let hasGeneratedFirstQR = false;
 let turnstileToken = null;
-let turnstileConsumed = false;
 
 async function initTurnstile() {
   if (typeof turnstile === "undefined") {
@@ -13,10 +11,8 @@ async function initTurnstile() {
   try {
     const res = await fetch("/api/config");
     const { sitekey } = await res.json();
-    if (!sitekey) {
-      console.error("Turnstile sitekey missing");
-      return;
-    }
+    if (!sitekey) return;
+
     const container = document.getElementById("cf-turnstile");
     if (!container) return;
     container.innerHTML = "";
@@ -25,7 +21,6 @@ async function initTurnstile() {
       appearance: "always",
       callback: (token) => {
         turnstileToken = token;
-        turnstileConsumed = false;
         document.getElementById("captcha-error").style.display = "none";
       },
       "error-callback": () => {
@@ -67,11 +62,11 @@ function isValidHttpUrl(url) {
 }
 
 async function getTurnstileToken() {
-  if (turnstileToken && !turnstileConsumed) return turnstileToken;
+  if (turnstileToken) return turnstileToken;
   return new Promise((resolve, reject) => {
     let attempts = 0;
     const interval = setInterval(() => {
-      if (turnstileToken && !turnstileConsumed) {
+      if (turnstileToken) {
         clearInterval(interval);
         resolve(turnstileToken);
       } else if (++attempts > 100) {
@@ -99,7 +94,7 @@ async function generateShortUrl(input) {
   });
 
   const data = await res.json();
-  turnstileConsumed = true;
+  turnstileToken = null;
   if (typeof turnstile !== "undefined") {
     turnstile.reset("#cf-turnstile");
   }
@@ -136,7 +131,6 @@ async function updateQRCode() {
   }
 
   currentQrData = await generateShortUrl(input);
-  isUrlSaved = false;
 
   if (currentQrData && currentQrData.qrSvg) {
     if (currentQrData.qrPng) img.dataset.png = currentQrData.qrPng;
@@ -164,9 +158,7 @@ document.getElementById("format").addEventListener("change", () => {
 
 document.getElementById("qr-input").addEventListener("input", () => {
   currentQrData = null;
-  isUrlSaved = false;
   turnstileToken = null;
-  turnstileConsumed = false;
   if (typeof turnstile !== "undefined") {
     turnstile.reset("#cf-turnstile");
   }
@@ -180,53 +172,11 @@ document.getElementById("qr-input").addEventListener("input", () => {
   }, debounceTime);
 });
 
-async function saveUrlIfNeeded() {
-  if (!isUrlSaved && currentQrData && currentQrData.shortenedUrl) {
-    const input = document.getElementById("qr-input").value.trim();
-
-    let cfToken;
-    try {
-      cfToken = await getTurnstileToken();
-    } catch {
-      showToast("⚠️ Please complete the CAPTCHA to save");
-      return;
-    }
-
-    const saveResponse = await fetch("/api/saveURL", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        originalUrl: input,
-        shortenedUrl: currentQrData.shortenedUrl,
-        cfToken,
-      }),
-    });
-
-    const result = await saveResponse.json();
-
-    if (saveResponse.ok) {
-      isUrlSaved = true;
-      turnstileConsumed = true;
-      if (result.shortenedUrl && result.shortenedUrl !== currentQrData.shortenedUrl) {
-        currentQrData.shortenedUrl = result.shortenedUrl;
-        currentQrData.fullUrl = result.fullUrl;
-        document.getElementById("short-url").textContent = result.fullUrl;
-      }
-      showToast("✅ Link saved successfully!");
-    } else if (saveResponse.status === 429) {
-      showToast("⚠️ Too many requests. Please wait a moment.");
-    } else {
-      showToast("⚠️ Failed to save: " + (result.error || "Unknown error"));
-    }
-  }
-}
-
 async function copyToClipboard() {
   const copyButton = document.querySelector(".copy-btn");
   const shortUrlText = document.getElementById("short-url").textContent;
   if (!shortUrlText.trim()) return;
 
-  await saveUrlIfNeeded();
   navigator.clipboard.writeText(shortUrlText).then(() => {
     showToast("✅ Link copied to clipboard!");
     copyButton.classList.add("copied");
@@ -249,7 +199,6 @@ function showToast(message) {
 
 async function downloadQRCode() {
   if (!currentQrData) return;
-  await saveUrlIfNeeded();
 
   const format = document.getElementById("format").value;
   const shortUrl = currentQrData.shortenedUrl.replace(/\W+/g, "");
