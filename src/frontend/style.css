@@ -64,7 +64,11 @@ img {
     align-items: center;
 }
 
-.qr-box canvas, .qr-box img {
+.qr-box canvas {
+    display: none !important;
+}
+
+.qr-box img {
     max-width: 15.625rem;
     height: auto;
     margin: 0 auto;
